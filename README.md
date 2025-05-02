@@ -1,11 +1,11 @@
-# bpt: Bundle APT
+# bdapt: Bundle APT
 
 When installing applications on Debian from sources outside of APT, you often need to manually install multiple APT packages as dependencies. Later, when uninstalling the application, these dependencies aren't automatically removed by `apt autoremove` since they were marked as manually installed rather than auto-installed.
 
-bpt (Bundle APT) is a lightweight Python tool that manages groups of package dependencies as cohesive bundles. It uses equivs to create metapackages, allowing dependencies to be installed, tracked, and removed together. You can easily modify bundles by adding or removing packages as needed.
+bdapt (Bundle APT) is a lightweight Python tool that manages groups of package dependencies as cohesive bundles. It uses equivs to create metapackages, allowing dependencies to be installed, tracked, and removed together. You can easily modify bundles by adding or removing packages as needed.
 
 ```plaintext
-bpt [command] [options]
+bdapt [command] [options]
 
 COMMANDS:
   new <bundle> [pkgs...]    Create and install new bundle (sudo required)
@@ -25,13 +25,12 @@ COMMANDS:
   show <bundle>           Display bundle contents
     --tree               Show as dependency tree
 
-  clean                   Remove temporary files
-    --all                Reset all bpt data
+  sync <bundle>          Force reinstall bundle to match definition (sudo)
 
 OPTIONS:
   -y, --non-interactive  Skip all confirmation prompts
   -q, --quiet           Minimal output
-  --config PATH         Alternate config location (~/.local/share/bpt)
+  --config PATH         Alternate config location (~/.local/share/bdapt)
 
 DESIGN PRINCIPLES:
 1. Immediate system impact - no separate "update" step
@@ -42,14 +41,14 @@ DESIGN PRINCIPLES:
 
 EXAMPLE WORKFLOW:
 # Create and install web stack
-$ sudo bpt new web-stack nginx postgresql redis -d "Web services"
+$ sudo bdapt new web-stack nginx postgresql redis -d "Web services"
 
 # Add PHP components
-$ sudo bpt add web-stack php-fpm php-pgsql
+$ sudo bdapt add web-stack php-fpm php-pgsql
 
 # Remove Redis when no longer needed
-$ sudo bpt rm web-stack redis
+$ sudo bdapt rm web-stack redis
 
 # Complete removal
-$ sudo bpt del web-stack
+$ sudo bdapt del web-stack
 ```
