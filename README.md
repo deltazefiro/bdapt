@@ -2,42 +2,35 @@
 
 When installing applications on Debian from sources outside of APT, you often need to manually install multiple APT packages as dependencies. Later, when uninstalling the application, these dependencies aren't automatically removed by `apt autoremove` since they were marked as manually installed rather than auto-installed.
 
-bdapt (Bundle APT) is a lightweight Python tool that manages groups of package dependencies as cohesive bundles. It uses equivs to create metapackages, allowing dependencies to be installed, tracked, and removed together. You can easily modify bundles by adding or removing packages as needed.
+bdapt (Bundle APT, pronounced "bee-dapt") is a lightweight Python tool that manages groups of package dependencies as cohesive bundles. It uses equivs to create metapackages, allowing dependencies to be installed, tracked, and removed together. You can easily modify bundles by adding or removing packages as needed.
 
 ```plaintext
 bdapt [command] [options]
 
 COMMANDS:
-  new <bundle> [pkgs...]    Create and install new bundle (sudo required)
-    -d, --desc TEXT      Add description
+  new <bundle> [pkgs...]      Create and install new bundle
+    -d, --desc TEXT           Add description
 
-  add <bundle> <pkgs...>    Add packages and update system immediately (sudo)
-    --no-deps            Skip automatic dependency resolution
+  add <bundle> <pkgs...>      Add packages to a bundle
 
-  rm <bundle> <pkgs...>     Remove packages and update system immediately (sudo)
-    --keep-deps          Leave orphaned dependencies installed
+  rm <bundle> <pkgs...>       Remove packages from a bundle
+    --keep-pkg                Update bundle but keep packages on the system (mark as manual)
+    --force-remove            Force removal of packages from the system, even if manually installed or required by other bundles
 
-  del <bundle>             Permanently delete bundle and uninstall (sudo)
-    --keep-pkgs          Remove bundle but keep packages
+  del <bundle>                Permanently delete the bundle
+    --keep-pkg                Remove bundle but keep packages (mark as manually installed)
+    --force-remove            Force removal of packages from the system, even if manually installed or required by other bundles
 
-  ls                      List all bundles
+  ls                          List all bundles
+    --tree                    Show as dependency tree
 
-  show <bundle>           Display bundle contents
-    --tree               Show as dependency tree
+  show <bundle>               Display bundle contents
 
-  sync <bundle>          Force reinstall bundle to match definition (sudo)
+  sync <bundle>               Force reinstall bundle to match definition
 
 OPTIONS:
-  -y, --non-interactive  Skip all confirmation prompts
-  -q, --quiet           Minimal output
-  --config PATH         Alternate config location (~/.local/share/bdapt)
-
-DESIGN PRINCIPLES:
-1. Immediate system impact - no separate "update" step
-2. Sudo required for any system modification
-3. No version history - last change overwrites previous state
-4. Simple verbs (new/add/rm/del) for fast operation
-5. Automatic dependency handling by default
+  -y, --non-interactive       Skip all confirmation prompts
+  -q, --quiet                 Minimal output
 
 EXAMPLE WORKFLOW:
 # Create and install web stack

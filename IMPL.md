@@ -1,24 +1,17 @@
-## Project: bdapt (Bundle APT)
+# Project: bdapt (Bundle APT)
 
 **Goal:** Create a Python CLI tool to manage groups (bundles) of APT packages as dependencies for externally installed software, using `equivs` metapackages for seamless integration with APT's dependency management and removal.
-
-**Core Principles Reaffirmed:**
-
-1. **Immediate System Impact:** Actions like `add`, `rm`, `new` (with packages), `del` directly modify the system state via `dpkg` and `apt`.
-2. **Sudo Requirement:** Any command causing system modification *must* invoke `sudo` for the relevant package management commands. The `bdapt` script itself shouldn't require root, but it will execute `sudo dpkg/apt`.
-3. **Stateless (No History):** Bundle definitions represent the *current desired state*. Changes overwrite previous states.
-4. **Simple Verbs:** `new`, `add`, `rm`, `del`, `ls`, `show`, `clean` provide an intuitive interface.
-5. **Automatic Dependency Handling (via APT):** `bdapt` focuses on defining *direct* dependencies in the metapackage; `apt` handles the installation of transitive dependencies and removal via `autoremove`.
 
 ## Implementation Plan
 
 ### 1. Technology Stack & Libraries
 
-* **Language & Packaging:** Python 3 + UV
+* **Language:** Python 3
+* **Packaging:** UV
 * **CLI Framework:** Typer
 * **System Interaction:** `subprocess` module and invoke `equivs` & `apt`
 * **Temporary Files:** `tempfile` module
-* **Storage Location:** `pathlib` module for handling paths robustly. Default location `~/.local/share/bdapt` respects XDG Base Directory Specification (partially, should ideally use `XDG_DATA_HOME`).
+* **Storage Location:** `pathlib` module for handling paths robustly
 
 ### 2. Data Storage
 
@@ -33,7 +26,7 @@
   * Format: A dictionary where keys are bundle names (strings) and values are dictionaries containing:
     * `description`: String (optional, default to empty).
     * `packages`: Dictionary where keys are package names and values are package specifications:
-      * `version`: String (optional) - specific version to install (e.g., "1.18.0-6ubuntu14.4")
+      * `version`: String (optional) - version constraint using APT syntax (e.g., ">= 2.34.1", "~= 2.34", "= 1.18.0-6ubuntu14.4")
 
     ```json
     {
@@ -41,11 +34,11 @@
         "description": "Web services",
         "packages": {
           "nginx": {
-            "version": "1.18.0-6ubuntu14.4"
+            "version": ">= 1.18.0"
           },
           "postgresql": {},
           "redis": {
-            "version": "7.0.15-1",
+            "version": "~= 7.0"
           }
         }
       },
@@ -54,7 +47,7 @@
         "packages": {
           "build-essential": {},
           "git": {
-            "version": "2.34.1-1ubuntu1.10",
+            "version": ">= 2.34.1"
           },
           "vim": {}
         }
@@ -64,12 +57,11 @@
 
 * **Concurrency Control:** Implement a simple file lock (using `fcntl` on Unix and a lock file like `.bdapt.lock`) within the data directory to prevent race conditions if multiple `bdapt` instances run concurrently. Use contextlib.contextmanager to handle the lock.
 
-### 3. Core `equivs` Interaction Logic
+### 3. Core Logic
 
 * **Metapackage Handling:** Metapackages are ephemeral, generated fresh for each operation, get cleaned up after each operation completes.
 * **Metapackage Naming:** `bdapt-<bundle-name>`. Not allow spaces/special chars, otherwise raise an error.
-* **Control File Generation:**
-  * Create a function `generate_control_file(bundle_name, description, package_list)` that returns the control file content as a string or writes it to a temporary file.
+* **Control File:**
   * **Essential Fields:**
     * `Package: bdapt-<bundle-name>`
     * `Version:` Use a timestamp stored per-bundle. E.g., `1.0~YYYYMMDDHHMMSS`.
@@ -77,33 +69,36 @@
     * `Architecture: all`
     * `Description:` The user-provided description.
     * `Depends:` Comma-separated list of packages from the `packages` list in `bundles.json`. Ensure proper formatting (e.g., handle potential version constraints if ever added).
-* **New / Update Workflow:**
-    1. Check if the bundle definition already exists in `bundles.json`, load or raise an error.
+* **Sync Bundle Workflow:**
+    1. New bundle definition provided.
     2. Create a temporary directory using `tempfile.TemporaryDirectory()`
     3. Generate the control file content and run `equivs-build <control-file-path>` with `cwd` set to the temporary directory
-    4. Run `sudo dpkg -i <path-to-generated.deb>`
+    4. Run `sudo dpkg -i <path-to-generated.deb>`.
+       * **If this step succeeds, update `bundles.json` to add the bundle definition.**
+       * Otherwise, raise an error.
     5. Run `sudo apt install -f` to handle dependencies:
        * Do not use `-y` flag on apt unless we get `-y` flag from `bdapt` command line
        * Pass out apt's output to the user for confirmation
-       * If user cancels, run `sudo dpkg -r bdapt-<bundle-name>` to revert the metapackage installation
+       * On failure or cancellation: **keep the updated `bundles.json`**, prompt user to fix or remove the bundle manually
     6. All temporary files (control file, .deb) are automatically cleaned up
-    7. Update `bundles.json` to add the bundle definition
-* **Removal Workflow:**
-    1. Run `sudo apt remove bdapt-<bundle-name>`:
-       * Pass out apt's output to the user for confirmation
-       * If user cancels, abort the removal operation
-    2. Update `bundles.json` to remove the bundle definition
 
 ### 4. Command Implementation Details
 
-* **Shared Logic:**
-  * Load/Save `bundles.json` safely (handle file not found, JSON errors, use locking).
-  * Implement helper function `run_apt_command(cmd_list)` to handle apt operations with dependency confirmation:
-    * Run apt in simulation mode first to get package changes
-    * Present changes to user in a clear format
-    * If confirmed, execute the actual command
-    * If cancelled, handle rollback operations as needed
-  * Handle global options (`-q`, `-y`) early via Typer callback.
+* Load/Save `bundles.json` safely (handle file not found, JSON errors, use locking).
+* Handle global options (`-q`, `-y`) early via Typer callback.
+* Specific commands implementation:
+  * `new`, `add` and `sync`
+    1. Check if the bundle definition already exists in `bundles.json`, load or raise an error.
+    2. Sync the bundle.
+  * `rm`
+    1. Check if the bundle definition exists in `bundles.json`, load or raise an error.
+    2. Sync the bundle with the new definition.
+    3. If the removed package is not in any other bundle and is not manually installed, remove the package from the system.
+  * `del`
+    1. Check if the bundle definition exists in `bundles.json`, load or raise an error.
+    2. Remove `bdapt-<bundle-name>` metapackage.
+    3. If `--keep-pkgs` is provided, mark the packages as manually installed.
+    4. Remove the bundle definition from `bundles.json`.
 
 ### 5. Points for Extra Attention
 
@@ -144,106 +139,51 @@
     * Correct output for `ls`, `show`
     * Edge cases like interrupted operations and package conflicts
 
-### 8. Class Design
+### 7. Class and File Structure
 
-```python
-# Context manager for file locking
-@contextmanager
-def locked_file(file_path: Path):
-    ...
+#### 7.1 Project Structure
 
-# Pydantic model for package specifications
-class PackageSpec(BaseModel):
-    version: Optional[str] = None
-
-# Pydantic model for a bundle
-class Bundle(BaseModel):
-    name: str
-    description: str = ""
-    packages: Dict[str, PackageSpec] = {}
-
-@dataclass
-class MetapackageManager:
-    """Handles all APT and equivs-related operations."""
-    
-    def _generate_control_file(self, bundle: Bundle) -> str:
-        """Generate the equivs control file content for a bundle."""
-        pass
-
-    def _build_metapackage(self, bundle: Bundle, temp_dir: Path) -> Path:
-        """Build a .deb metapackage for the bundle in the given temporary directory.
-        Returns the path to the generated .deb file."""
-        pass
-
-    def install_metapackage(self, bundle: Bundle, deb_path: Path, yes: bool = False) -> bool:
-        """Install the metapackage using dpkg and apt.
-        Returns True if installation was successful."""
-        pass
-
-    def remove_metapackage(self, bundle_name: str, yes: bool = False) -> bool:
-        """Remove the metapackage using apt and trigger autoremove.
-        Returns True if removal was successful."""
-        pass
-
-    def verify_package_exists(self, package_name: str) -> bool:
-        """Verify if a package exists in APT repositories using apt-cache."""
-        pass
-
-    def simulate_changes(self, bundle: Bundle) -> str:
-        """Run apt in simulation mode to preview package changes."""
-        pass
-
-    @staticmethod
-    def _run_apt_command(cmd: List[str], sudo: bool = True) -> subprocess.CompletedProcess:
-        """Helper method to run APT-related commands with proper error handling."""
-        pass
-
-class BundleManager:
-    """Manages bundle definitions and orchestrates operations."""
-    
-    def __init__(self, data_dir: Path = Path.home() / ".local" / "share" / "bdapt") -> None:
-        """Initialize the BundleManager with a data directory."""
-        self.data_dir: Path = data_dir
-        self.bundles_file: Path = data_dir / "bundles.json"
-        self.lock_file: Path = data_dir / ".bdapt.lock"
-        self.bundles: Dict[str, Bundle] = {}
-        self.metapackage_mgr = MetapackageManager()
-
-    def _load_bundles(self) -> None:
-        """Load all bundles from the JSON file."""
-        pass
-
-    def _save_bundles(self) -> None:
-        """Save all bundles to the JSON file."""
-        pass
-
-    def create_bundle(self, bundle: Bundle, yes: bool = False) -> None:
-        """Create a new bundle and install its metapackage."""
-        pass
-
-
-    def delete_bundle(self, name: str, yes: bool = False) -> None:
-        """Delete a bundle and remove its metapackage."""
-        pass
-
-    def update_bundle(self, bundle: Bundle, yes: bool = False) -> None:
-        """Update an existing bundle with a new definition."""
-        pass
-
-    def list_bundles(self) -> List[Bundle]:
-        """Return a list of all bundles."""
-        pass
-
-    def get_bundle(self, name: str) -> Bundle:
-        """Retrieve a specific bundle by name."""
-        pass
-
-    def verify_packages(self, bundle: Bundle) -> List[str]:
-        """Verify all packages in a bundle exist.
-        Returns a list of non-existent packages."""
-        pass
-
-# CLI setup with Typer
-...
-
+```plaintext
+bdapt/
+├── pyproject.toml              # UV project configuration
+├── README.md
+├── IMPL.md
+├── Dockerfile                  # For testing environment
+├── test_runner.sh             # Docker test runner script
+├── src/
+│   └── bdapt/
+│       ├── __init__.py
+│       ├── __main__.py        # Entry point for `python -m bdapt`
+│       ├── cli.py             # Typer CLI interface
+│       ├── core/
+│       │   ├── __init__.py
+│       │   ├── bundle.py      # Bundle data model and operations
+│       │   ├── storage.py     # Data persistence and locking
+│       │   ├── equivs.py      # Equivs metapackage operations
+│       │   └── apt.py         # APT system interaction
+│       ├── models/
+│       │   ├── __init__.py
+│       │   └── bundle.py      # Pydantic models
+│       ├── exceptions/
+│       │   ├── __init__.py
+│       │   └── errors.py      # Custom exception classes
+│       └── utils/
+│           ├── __init__.py
+│           ├── system.py      # System utilities (sudo, validation)
+│           └── output.py      # Rich output formatting
+└── tests/
+    ├── __init__.py
+    ├── conftest.py            # Pytest configuration
+    ├── unit/
+    │   ├── __init__.py
+    │   ├── test_bundle.py
+    │   ├── test_storage.py
+    │   ├── test_equivs.py
+    │   └── test_apt.py
+    ├── integration/
+    │   ├── __init__.py
+    │   └── test_cli.py
+    └── docker/
+        ├── Dockerfile
+        └── test_entrypoint.sh
 ```
