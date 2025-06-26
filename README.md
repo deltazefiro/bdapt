@@ -15,11 +15,11 @@ COMMANDS:
 
   rm <bundle> <pkgs...>       Remove packages from a bundle
     --keep-pkg                Update bundle but keep packages on the system (mark as manual)
-    --force-remove            Force removal of packages from the system, even if manually installed or required by other bundles
+    --force                   Force removal of packages from the system, even if manually installed or required by other bundles
 
-  del <bundle>                Permanently delete the bundle
+  del <bundle>                Delete the bundle
     --keep-pkg                Remove bundle but keep packages (mark as manually installed)
-    --force-remove            Force removal of packages from the system, even if manually installed or required by other bundles
+    --force                   Force removal of packages from the system, even if manually installed or required by other bundles
 
   ls                          List all bundles
     --tree                    Show as dependency tree
