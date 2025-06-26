@@ -1,0 +1,53 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "bdapt CLI",
+            "type": "python",
+            "request": "launch",
+            "module": "bdapt.cli",
+            "console": "integratedTerminal",
+            "args": ["--help"],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "bdapt list",
+            "type": "python",
+            "request": "launch",
+            "module": "bdapt.cli",
+            "console": "integratedTerminal",
+            "args": ["ls"],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Debug Tests",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "args": ["-v", "tests/"],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Debug Single Test",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "args": ["-v", "-s", "${file}"],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+} 

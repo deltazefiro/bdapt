@@ -1,0 +1,67 @@
+{
+    "name": "bdapt Development",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": true,
+            "configureZshAsDefaultShell": true,
+            "installOhMyZsh": true,
+            "upgradePackages": true
+        },
+        "ghcr.io/devcontainers/features/git:1": {
+            "ppa": true,
+            "version": "latest"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.black-formatter",
+                "ms-python.isort",
+                "ms-python.mypy-type-checker",
+                "ms-python.pylint",
+                "charliermarsh.ruff",
+                "tamasfe.even-better-toml",
+                "ms-vscode.test-adapter-converter",
+                "ms-python.pytest",
+                "ms-vscode.makefile-tools",
+                "redhat.vscode-yaml",
+                "yzhang.markdown-all-in-one"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/home/vscode/.local/bin/python",
+                "python.formatting.provider": "black",
+                "python.linting.enabled": true,
+                "python.linting.pylintEnabled": false,
+                "python.linting.mypyEnabled": true,
+                "python.testing.pytestEnabled": true,
+                "python.testing.unittestEnabled": false,
+                "python.testing.pytestArgs": [
+                    "tests"
+                ],
+                "editor.formatOnSave": true,
+                "editor.codeActionsOnSave": {
+                    "source.organizeImports": true
+                },
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/*.pyc": true,
+                    ".pytest_cache": true,
+                    ".mypy_cache": true,
+                    "*.egg-info": true
+                }
+            }
+        }
+    },
+    "forwardPorts": [],
+    "postCreateCommand": "uv sync --dev && echo 'Development environment ready!'",
+    "remoteUser": "vscode",
+    "workspaceFolder": "/workspace",
+    "mounts": [
+        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+    ]
+} 

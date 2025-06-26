@@ -1,0 +1,42 @@
+FROM debian:stable-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    equivs \
+    apt-utils \
+    sudo \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create test user with sudo access
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set up working directory
+WORKDIR /app
+
+# Copy project files
+COPY . /app/
+
+# Change ownership to test user
+RUN chown -R testuser:testuser /app
+
+# Switch to test user
+USER testuser
+
+# Install UV package manager
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/home/testuser/.cargo/bin:$PATH"
+
+# Install project dependencies
+RUN uv sync --dev
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PATH="/home/testuser/.local/bin:$PATH"
+
+# Default command
+CMD ["uv", "run", "pytest", "-v"] 
