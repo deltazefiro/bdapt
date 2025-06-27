@@ -85,7 +85,8 @@ class BundleManager:
             result = subprocess.run(cmd, check=check, **kwargs)
             return result
         except subprocess.CalledProcessError as e:
-            raise BundleError(f"Command failed: {' '.join(cmd)}\nError: {e}") from e
+            raise BundleError(
+                f"Command failed: {' '.join(cmd)}\nError: {e}") from e
         except FileNotFoundError as e:
             raise BundleError(f"Command not found: {cmd[0]}") from e
 
@@ -155,7 +156,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
             deb_file = deb_files[0]
 
             # Install metapackage
-            self._run_command(["sudo", "dpkg", "-i", str(deb_file)])
+            self._run_command(
+                ["sudo", "dpkg", "-i", str(deb_file)], check=False)
 
     def _is_package_manually_installed(self, package: str) -> bool:
         """Check if a package is marked as manually installed.
@@ -214,7 +216,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
 
         # Create bundle definition
         bundle = Bundle(
-            description=description, packages={pkg: PackageSpec() for pkg in packages}
+            description=description, packages={
+                pkg: PackageSpec() for pkg in packages}
         )
 
         # Add to storage and sync
@@ -293,7 +296,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
 
             if not keep_packages:
                 # Determine which packages to remove from system
-                other_bundle_packages = self._get_packages_in_other_bundles(bundle_name)
+                other_bundle_packages = self._get_packages_in_other_bundles(
+                    bundle_name)
                 packages_to_remove = []
 
                 for pkg in packages:
@@ -316,7 +320,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
                     self.console.print(
                         f"[yellow]The following packages will be removed: {' '.join(packages_to_remove)}[/yellow]"
                     )
-                    self._run_command(["sudo", "apt", "remove"] + packages_to_remove)
+                    self._run_command(
+                        ["sudo", "apt", "remove"] + packages_to_remove)
 
             self.console.print(
                 f"[green]✓[/green] Removed packages from bundle '{bundle_name}'"
@@ -353,7 +358,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
 
             if not keep_packages:
                 # Handle package removal similar to remove_packages
-                other_bundle_packages = self._get_packages_in_other_bundles(bundle_name)
+                other_bundle_packages = self._get_packages_in_other_bundles(
+                    bundle_name)
                 packages_to_remove = []
 
                 for pkg in bundle.packages:
@@ -377,7 +383,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
                         f"[yellow]Run 'sudo apt autoremove' to remove unused packages[/yellow]"
                     )
 
-            self.console.print(f"[green]✓[/green] Deleted bundle '{bundle_name}'")
+            self.console.print(
+                f"[green]✓[/green] Deleted bundle '{bundle_name}'")
 
         except Exception as e:
             raise BundleError(f"Failed to delete bundle: {e}") from e
@@ -397,7 +404,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
 
         try:
             self._sync_bundle_metapackage(bundle_name, bundle)
-            self.console.print(f"[green]✓[/green] Synced bundle '{bundle_name}'")
+            self.console.print(
+                f"[green]✓[/green] Synced bundle '{bundle_name}'")
         except Exception as e:
             raise BundleError(f"Failed to sync bundle: {e}") from e
 
@@ -412,7 +420,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
         for name, bundle in storage.bundles.items():
             desc = f" - {bundle.description}" if bundle.description else ""
             pkg_count = len(bundle.packages)
-            self.console.print(f"[blue]{name}[/blue]{desc} ({pkg_count} packages)")
+            self.console.print(
+                f"[blue]{name}[/blue]{desc} ({pkg_count} packages)")
 
     def show_bundle(self, bundle_name: str) -> None:
         """Show bundle details.

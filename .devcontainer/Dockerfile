@@ -9,35 +9,19 @@ RUN apt-get update && apt-get install -y \
     wget \
     git \
     build-essential \
-    docker.io \
     && rm -rf /var/lib/apt/lists/*
-
-# Add vscode user to docker group for Docker socket access
-RUN usermod -aG docker vscode
 
 # Switch to vscode user
 USER vscode
 
 # Install UV package manager
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/home/vscode/.cargo/bin:$PATH"
 
 # Set up workspace
 WORKDIR /workspace
 
 # Create a directory for UV cache
 RUN mkdir -p /home/vscode/.cache/uv
-
-# Set environment variables
-ENV PYTHONPATH=/workspace
-ENV PATH="/home/vscode/.local/bin:$PATH"
-ENV UV_CACHE_DIR="/home/vscode/.cache/uv"
-
-# Copy project files (done by devcontainer automatically)
-# But we can set up some basic configurations
-
-# Create a basic gitconfig for the container
-RUN git config --global --add safe.directory /workspace
 
 # Set up shell prompt
 RUN echo 'export PS1="\[\e[32m\]bdapt-dev\[\e[m\] \[\e[34m\]\w\[\e[m\] \$ "' >> ~/.bashrc

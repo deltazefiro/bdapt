@@ -1,5 +1,6 @@
 """CLI interface for bdapt."""
 
+import functools
 import sys
 from typing import List, Optional
 
@@ -68,6 +69,7 @@ def main(
 def handle_errors(func):
     """Decorator to handle common errors."""
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -100,7 +102,8 @@ def new(
 ) -> None:
     """Create and install new bundle."""
     if not packages:
-        console.print("[red]Error:[/red] At least one package must be specified")
+        console.print(
+            "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
     manager = BundleManager(console=console)
@@ -123,7 +126,8 @@ def new(
                 "[yellow]Warning:[/yellow] apt install failed. You may need to fix dependencies manually."
             )
     except Exception as e:
-        console.print(f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
+        console.print(
+            f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
 
 
 @app.command()
@@ -134,7 +138,8 @@ def add(
 ) -> None:
     """Add packages to a bundle."""
     if not packages:
-        console.print("[red]Error:[/red] At least one package must be specified")
+        console.print(
+            "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
     manager = BundleManager(console=console)
@@ -157,7 +162,8 @@ def add(
                 "[yellow]Warning:[/yellow] apt install failed. You may need to fix dependencies manually."
             )
     except Exception as e:
-        console.print(f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
+        console.print(
+            f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
 
 
 @app.command()
@@ -178,11 +184,13 @@ def rm(
 ) -> None:
     """Remove packages from a bundle."""
     if not packages:
-        console.print("[red]Error:[/red] At least one package must be specified")
+        console.print(
+            "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
     manager = BundleManager(console=console)
-    manager.remove_packages(bundle, packages, keep_packages=keep_pkg, force=force)
+    manager.remove_packages(
+        bundle, packages, keep_packages=keep_pkg, force=force)
 
 
 @app.command(name="del")
@@ -261,13 +269,9 @@ def sync(
                 "[yellow]Warning:[/yellow] apt install failed. You may need to fix dependencies manually."
             )
     except Exception as e:
-        console.print(f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
-
-
-def main_cli() -> None:
-    """Main entry point for the CLI."""
-    app()
+        console.print(
+            f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
 
 
 if __name__ == "__main__":
-    main_cli()
+    app()

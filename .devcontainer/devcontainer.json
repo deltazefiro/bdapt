@@ -2,19 +2,7 @@
     "name": "bdapt Development",
     "build": {
         "dockerfile": "Dockerfile",
-        "context": ".."
-    },
-    "features": {
-        "ghcr.io/devcontainers/features/common-utils:2": {
-            "installZsh": true,
-            "configureZshAsDefaultShell": true,
-            "installOhMyZsh": true,
-            "upgradePackages": true
-        },
-        "ghcr.io/devcontainers/features/git:1": {
-            "ppa": true,
-            "version": "latest"
-        }
+        "context": "."
     },
     "customizations": {
         "vscode": {
@@ -59,9 +47,5 @@
     },
     "forwardPorts": [],
     "postCreateCommand": "uv sync --dev && echo 'Development environment ready!'",
-    "remoteUser": "vscode",
-    "workspaceFolder": "/workspace",
-    "mounts": [
-        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
-    ]
-} 
+    "remoteUser": "vscode"
+}

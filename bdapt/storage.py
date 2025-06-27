@@ -13,8 +13,6 @@ from .models import BundleStorage
 class StorageError(Exception):
     """Raised when storage operations fail."""
 
-    pass
-
 
 class BundleStore:
     """Manages persistent storage of bundle definitions."""
@@ -60,7 +58,7 @@ class BundleStore:
                 return BundleStorage()
 
             try:
-                with open(self.bundles_file, "r") as f:
+                with open(self.bundles_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 return BundleStorage.model_validate(data)
             except (json.JSONDecodeError, ValueError) as e:
@@ -70,9 +68,9 @@ class BundleStore:
         """Save bundle storage to disk with locking."""
         with self._lock():
             try:
-                with open(self.bundles_file, "w") as f:
+                with open(self.bundles_file, "w", encoding="utf-8") as f:
                     json.dump(
-                        storage.model_dump(exclude_unset=True),
+                        storage.model_dump(),
                         f,
                         indent=2,
                         sort_keys=True,

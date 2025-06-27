@@ -6,29 +6,17 @@ build-backend = "hatchling.build"
 name = "bdapt"
 version = "0.1.0"
 description = "Bundle APT - Manage groups of APT packages as dependencies"
-authors = [
-    {name = "deltazefiro", email = "deltazefiro@gmail.com"},
-]
-license = {text = "GPL-3.0-or-later"}
+authors = [{ name = "deltazefiro", email = "deltazefiro@gmail.com" }]
+license = { text = "GPL-3.0-or-later" }
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "typer",
-    "pydantic",
-    "rich",
-]
+dependencies = ["typer", "pydantic", "rich"]
 
 [project.scripts]
 bdapt = "bdapt.cli:app"
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-cov",
-    "black",
-    "isort",
-    "mypy",
-]
+dev = ["pytest", "pytest-cov", "black", "isort", "mypy"]
 
 [tool.black]
 line-length = 88
@@ -42,4 +30,4 @@ line_length = 88
 python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true 
+disallow_untyped_defs = true
