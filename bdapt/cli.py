@@ -107,27 +107,7 @@ def new(
         raise typer.Exit(1)
 
     manager = BundleManager(console=console)
-    manager.create_bundle(bundle, packages, desc or "")
-
-    # Install dependencies
-    if not non_interactive:
-        console.print("[yellow]Installing dependencies...[/yellow]")
-
-    try:
-        import subprocess
-
-        cmd = ["sudo", "apt", "install", "-f"]
-        if non_interactive:
-            cmd.append("-y")
-
-        result = subprocess.run(cmd, check=False)
-        if result.returncode != 0:
-            console.print(
-                "[yellow]Warning:[/yellow] apt install failed. You may need to fix dependencies manually."
-            )
-    except Exception as e:
-        console.print(
-            f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
+    manager.create_bundle(bundle, packages, desc or "", non_interactive)
 
 
 @app.command()
@@ -143,27 +123,7 @@ def add(
         raise typer.Exit(1)
 
     manager = BundleManager(console=console)
-    manager.add_packages(bundle, packages)
-
-    # Install dependencies
-    if not non_interactive:
-        console.print("[yellow]Installing dependencies...[/yellow]")
-
-    try:
-        import subprocess
-
-        cmd = ["sudo", "apt", "install", "-f"]
-        if non_interactive:
-            cmd.append("-y")
-
-        result = subprocess.run(cmd, check=False)
-        if result.returncode != 0:
-            console.print(
-                "[yellow]Warning:[/yellow] apt install failed. You may need to fix dependencies manually."
-            )
-    except Exception as e:
-        console.print(
-            f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
+    manager.add_packages(bundle, packages, non_interactive)
 
 
 @app.command()
@@ -190,7 +150,7 @@ def rm(
 
     manager = BundleManager(console=console)
     manager.remove_packages(
-        bundle, packages, keep_packages=keep_pkg, force=force)
+        bundle, packages, keep_packages=keep_pkg, force=force, non_interactive=non_interactive)
 
 
 @app.command(name="del")
@@ -210,7 +170,8 @@ def delete(
 ) -> None:
     """Delete the bundle."""
     manager = BundleManager(console=console)
-    manager.delete_bundle(bundle, keep_packages=keep_pkg, force=force)
+    manager.delete_bundle(bundle, keep_packages=keep_pkg,
+                          force=force, non_interactive=non_interactive)
 
 
 @app.command()
@@ -250,27 +211,7 @@ def sync(
 ) -> None:
     """Force reinstall bundle to match definition."""
     manager = BundleManager(console=console)
-    manager.sync_bundle(bundle)
-
-    # Install dependencies
-    if not non_interactive:
-        console.print("[yellow]Installing dependencies...[/yellow]")
-
-    try:
-        import subprocess
-
-        cmd = ["sudo", "apt", "install", "-f"]
-        if non_interactive:
-            cmd.append("-y")
-
-        result = subprocess.run(cmd, check=False)
-        if result.returncode != 0:
-            console.print(
-                "[yellow]Warning:[/yellow] apt install failed. You may need to fix dependencies manually."
-            )
-    except Exception as e:
-        console.print(
-            f"[yellow]Warning:[/yellow] Failed to install dependencies: {e}")
+    manager.sync_bundle(bundle, non_interactive)
 
 
 if __name__ == "__main__":

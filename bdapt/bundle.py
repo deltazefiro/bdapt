@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from textwrap import dedent
 from typing import List, Optional, Set
 
 from rich.console import Console
@@ -103,12 +104,13 @@ class BundleManager:
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         metapackage_name = self._get_metapackage_name(bundle_name)
 
-        control_content = f"""Package: {metapackage_name}
-Version: 1.0~{timestamp}
-Maintainer: bdapt <bdapt@localhost>
-Architecture: all
-Description: {bundle.description or f"Bundle: {bundle_name}"}
-"""
+        control_content = dedent(f"""
+        Package: {metapackage_name}
+        Version: 1.0~{timestamp}
+        Maintainer: bdapt <bdapt@localhost>
+        Architecture: all
+        Description: {bundle.description or f"Generated metapackage for bdapt bundle '{bundle_name}'"}
+        """)
 
         if bundle.packages:
             depends = bundle.get_depends_string()
@@ -116,12 +118,13 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
 
         return control_content
 
-    def _sync_bundle_metapackage(self, bundle_name: str, bundle: Bundle) -> None:
+    def _sync_bundle_metapackage(self, bundle_name: str, bundle: Bundle, non_interactive: bool = False) -> None:
         """Sync bundle metapackage with current definition.
 
         Args:
             bundle_name: Name of the bundle
             bundle: Bundle definition
+            non_interactive: If True, run apt commands non-interactively
         """
         self._validate_bundle_name(bundle_name)
 
@@ -155,9 +158,12 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
 
             deb_file = deb_files[0]
 
-            # Install metapackage
-            self._run_command(
-                ["sudo", "dpkg", "-i", str(deb_file)], check=False)
+            # Install metapackage using apt install (not dpkg) to handle dependencies
+            cmd = ["sudo", "apt", "install", str(deb_file)]
+            if non_interactive:
+                cmd.append("-y")
+
+            self._run_command(cmd, check=True)
 
     def _is_package_manually_installed(self, package: str) -> bool:
         """Check if a package is marked as manually installed.
@@ -198,7 +204,7 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
         return packages
 
     def create_bundle(
-        self, name: str, packages: List[str], description: str = ""
+        self, name: str, packages: List[str], description: str = "", non_interactive: bool = False
     ) -> None:
         """Create a new bundle.
 
@@ -206,6 +212,7 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
             name: Bundle name
             packages: List of package names
             description: Bundle description
+            non_interactive: If True, run apt commands non-interactively
         """
         self._validate_bundle_name(name)
 
@@ -220,23 +227,25 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
                 pkg: PackageSpec() for pkg in packages}
         )
 
-        # Add to storage and sync
-        storage.bundles[name] = bundle
-
         try:
-            self._sync_bundle_metapackage(name, bundle)
+            # Sync metapackage first - only save to storage if successful
+            self._sync_bundle_metapackage(name, bundle, non_interactive)
+
+            # Add to storage only after successful sync
+            storage.bundles[name] = bundle
             self.store.save(storage)
             self.console.print(f"[green]✓[/green] Created bundle '{name}'")
         except Exception as e:
             # Don't save if sync failed
             raise BundleError(f"Failed to create bundle: {e}") from e
 
-    def add_packages(self, bundle_name: str, packages: List[str]) -> None:
+    def add_packages(self, bundle_name: str, packages: List[str], non_interactive: bool = False) -> None:
         """Add packages to an existing bundle.
 
         Args:
             bundle_name: Name of the bundle
             packages: List of package names to add
+            non_interactive: If True, run apt commands non-interactively
         """
         storage = self.store.load()
 
@@ -250,7 +259,7 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
             bundle.packages[pkg] = PackageSpec()
 
         try:
-            self._sync_bundle_metapackage(bundle_name, bundle)
+            self._sync_bundle_metapackage(bundle_name, bundle, non_interactive)
             self.store.save(storage)
             self.console.print(
                 f"[green]✓[/green] Added packages to bundle '{bundle_name}'"
@@ -264,6 +273,7 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
         packages: List[str],
         keep_packages: bool = False,
         force: bool = False,
+        non_interactive: bool = False,
     ) -> None:
         """Remove packages from a bundle.
 
@@ -272,6 +282,7 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
             packages: List of package names to remove
             keep_packages: If True, keep packages on system (mark as manual)
             force: If True, force removal even if in other bundles or manually installed
+            non_interactive: If True, run apt commands non-interactively
         """
         storage = self.store.load()
 
@@ -290,8 +301,8 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
                 del bundle.packages[pkg]
 
         try:
-            # Sync updated bundle
-            self._sync_bundle_metapackage(bundle_name, bundle)
+            # Sync updated bundle first
+            self._sync_bundle_metapackage(bundle_name, bundle, non_interactive)
             self.store.save(storage)
 
             if not keep_packages:
@@ -320,8 +331,19 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
                     self.console.print(
                         f"[yellow]The following packages will be removed: {' '.join(packages_to_remove)}[/yellow]"
                     )
-                    self._run_command(
-                        ["sudo", "apt", "remove"] + packages_to_remove)
+                    # Forward apt's output to user for confirmation as per design
+                    cmd = ["sudo", "apt", "remove"] + packages_to_remove
+                    if non_interactive:
+                        cmd.append("-y")
+
+                    try:
+                        self._run_command(cmd, check=False)
+                    except BundleError:
+                        # On failure: keep the updated bundles.json, prompt user to remove manually
+                        self.console.print(
+                            "[yellow]Warning:[/yellow] Failed to remove packages. "
+                            "Bundle definition updated. Please remove packages manually if needed."
+                        )
 
             self.console.print(
                 f"[green]✓[/green] Removed packages from bundle '{bundle_name}'"
@@ -331,7 +353,7 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
             raise BundleError(f"Failed to remove packages: {e}") from e
 
     def delete_bundle(
-        self, bundle_name: str, keep_packages: bool = False, force: bool = False
+        self, bundle_name: str, keep_packages: bool = False, force: bool = False, non_interactive: bool = False
     ) -> None:
         """Delete a bundle completely.
 
@@ -339,6 +361,7 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
             bundle_name: Name of the bundle to delete
             keep_packages: If True, keep packages on system (mark as manual)
             force: If True, force removal even if in other bundles or manually installed
+            non_interactive: If True, run apt commands non-interactively
         """
         storage = self.store.load()
 
@@ -350,7 +373,10 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
 
         try:
             # Remove metapackage
-            self._run_command(["sudo", "apt", "remove", metapackage_name])
+            cmd = ["sudo", "apt", "remove", metapackage_name]
+            if non_interactive:
+                cmd.append("-y")
+            self._run_command(cmd)
 
             # Remove from storage
             del storage.bundles[bundle_name]
@@ -389,11 +415,12 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
         except Exception as e:
             raise BundleError(f"Failed to delete bundle: {e}") from e
 
-    def sync_bundle(self, bundle_name: str) -> None:
+    def sync_bundle(self, bundle_name: str, non_interactive: bool = False) -> None:
         """Force reinstall bundle to match definition.
 
         Args:
             bundle_name: Name of the bundle to sync
+            non_interactive: If True, run apt commands non-interactively
         """
         storage = self.store.load()
 
@@ -403,7 +430,7 @@ Description: {bundle.description or f"Bundle: {bundle_name}"}
         bundle = storage.bundles[bundle_name]
 
         try:
-            self._sync_bundle_metapackage(bundle_name, bundle)
+            self._sync_bundle_metapackage(bundle_name, bundle, non_interactive)
             self.console.print(
                 f"[green]✓[/green] Synced bundle '{bundle_name}'")
         except Exception as e:

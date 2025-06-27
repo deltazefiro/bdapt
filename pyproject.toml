@@ -19,12 +19,10 @@ bdapt = "bdapt.cli:app"
 dev = ["pytest", "pytest-cov", "black", "isort", "mypy"]
 
 [tool.black]
-line-length = 88
 target-version = ['py38']
 
 [tool.isort]
 profile = "black"
-line_length = 88
 
 [tool.mypy]
 python_version = "3.8"
