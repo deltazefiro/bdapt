@@ -73,9 +73,11 @@
     1. New bundle definition provided.
     2. Create a temporary directory using `tempfile.TemporaryDirectory()`
     3. Generate the control file content and run `equivs-build <control-file-path>` with `cwd` set to the temporary directory
-    4. Run `sudo dpkg -i <path-to-generated.deb>`.
-       * **If this step succeeds, update `bundles.json` to add the bundle definition.**
-       * Otherwise, raise an error.
+    4. Run `sudo apt install <path-to-generated.deb>`.
+       * Forward apt's output to the user for confirmation
+       * The `bundles.json` should represent if the metapackage is installed or not.
+         * If user cancels, do not update `bundles.json`.
+         * If this step succeeds or fails during dependency resolution (after metapackage is installed), update `bundles.json` to add the bundle definition.
     5. All temporary files (control file, .deb) are automatically cleaned up
 
 ### 4. Command Implementation Details
@@ -86,10 +88,6 @@
   * `new`, `add` and `sync`
     1. Check or create bundle definition from `bundles.json`
     2. Sync the bundle.
-    3. Run `sudo apt install -f` to handle dependencies:
-       * Do not use `-y` flag on apt unless we get `-y` flag from `bdapt` command line
-       * Forward apt's output to the user for confirmation
-       * On failure or cancellation: **keep the updated `bundles.json`**, prompt user to fix or remove the bundle manually
   * `rm`
     1. Check if the bundle definition exists in `bundles.json`, load or raise an error.
     2. Sync the bundle with the new definition.
@@ -106,10 +104,8 @@
 
 ### 5. Points for Extra Attention
 
-* **Error Handling:** Wrap external command calls (`subprocess.run`) in `try...except` blocks, check return codes, parse stderr for common APT/dpkg errors, provide informative messages to the user. For apt operations, carefully handle user cancellations and ensure proper state rollback.
 * **Sudo Handling:** Detect if `sudo` is needed. Use `subprocess.run(['sudo', 'command', ...])` for package operations. Ensure `sudo` is available. Handle potential password prompts (though `-y` implies non-interactive `sudo` if possible, or assumes passwordless sudo / user interaction).
 * **Package Name Validity:** Consider adding an optional check using `apt-cache policy <pkg>` or `apt-cache show <pkg>` when adding packages to verify they exist, potentially preventing errors later during `equivs-build` or `apt install`.
-* **Idempotency:** Commands should ideally be idempotent where possible (e.g., adding an existing package is a no-op, removing a non-existent package warns but doesn't fail).
 * **User Experience (UX):** Provide clear feedback (use `rich` library for better output), handle `-q` and `-y` flags consistently, confirm destructive actions.
 * **Security:** Strictly avoid `shell=True` in `subprocess`. Sanitize bundle names if used directly in file paths or command arguments beyond the metapackage name.
 * **Edge Cases:** Empty bundles, bundles with no packages, packages with complex dependencies or conflicts (though `apt` should handle most). What happens if `equivs` or `apt` commands are interrupted? The state might be inconsistent.
