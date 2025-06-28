@@ -337,12 +337,18 @@ class BundleManager:
                         cmd.append("-y")
 
                     try:
-                        self._run_command(cmd, check=False)
+                        result = self._run_command(cmd, check=False)
+                        if result.returncode != 0:
+                            # User cancelled or command failed
+                            self.console.print(
+                                "[yellow]Package removal cancelled or failed. "
+                                "Bundle definition updated. Run 'sudo apt autoremove' to remove unused packages.[/yellow]"
+                            )
                     except BundleError:
                         # On failure: keep the updated bundles.json, prompt user to remove manually
                         self.console.print(
                             "[yellow]Warning:[/yellow] Failed to remove packages. "
-                            "Bundle definition updated. Please remove packages manually if needed."
+                            "Bundle definition updated. Run 'sudo apt autoremove' to remove unused packages.[/yellow]"
                         )
 
             self.console.print(
