@@ -6,7 +6,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 
 from rich.console import Console
 
@@ -118,6 +118,28 @@ class BundleManager:
 
         return control_content
 
+    def _parse_apt_dry_run_output(self, output: str) -> Tuple[int, List[str]]:
+        """Parse apt dry-run output to extract packages to be installed.
+
+        Args:
+            output: stdout from apt install --dry-run
+
+        Returns:
+            Tuple of (count of new packages, list of package names)
+        """
+        new_packages = []
+        lines = output.split('\n')
+
+        for line in lines:
+            # Look for lines like "Inst package-name (version info)"
+            if line.strip().startswith('Inst '):
+                parts = line.strip().split()
+                if len(parts) >= 2:
+                    package_name = parts[1]
+                    new_packages.append(package_name)
+
+        return len(new_packages), new_packages
+
     def _sync_bundle_metapackage(self, bundle_name: str, bundle: Bundle, non_interactive: bool = False) -> None:
         """Sync bundle metapackage with current definition.
 
@@ -158,11 +180,38 @@ class BundleManager:
 
             deb_file = deb_files[0]
 
-            # Install metapackage using apt install (not dpkg) to handle dependencies
-            cmd = ["sudo", "apt", "install", str(deb_file)]
-            if non_interactive:
-                cmd.append("-y")
+            # Perform dry run to see what packages will be installed
+            dry_run_cmd = ["sudo", "apt", "install",
+                           "--dry-run", str(deb_file)]
+            dry_run_result = self._run_command(
+                dry_run_cmd,
+                capture_output=True,
+                text=True,
+                check=True
+            )
 
+            # Parse dry run output
+            package_count, package_list = self._parse_apt_dry_run_output(
+                dry_run_result.stdout)
+
+            # Ask for confirmation if multiple packages and not non-interactive
+            if package_count > 1 and not non_interactive:
+                self.console.print(
+                    f"[yellow]The following {package_count} packages will be installed:[/yellow]")
+                for pkg in package_list:
+                    self.console.print(f"  • {pkg}")
+
+                response = input(
+                    "\nDo you want to continue? [y/N]: ").strip().lower()
+                if response not in ['y', 'yes']:
+                    raise BundleError("Installation cancelled by user")
+            elif package_count > 1:
+                # In non-interactive mode, just show what will be installed
+                self.console.print(
+                    f"[dim]Installing {package_count} packages: {', '.join(package_list[:5])}{'...' if len(package_list) > 5 else ''}[/dim]")
+
+            # Install metapackage using apt install (not dpkg) to handle dependencies
+            cmd = ["sudo", "apt", "install", str(deb_file), "-y"]
             self._run_command(cmd, check=True)
 
     def _is_package_manually_installed(self, package: str) -> bool:
@@ -294,11 +343,9 @@ class BundleManager:
         # Remove packages from bundle definition
         for pkg in packages:
             if pkg not in bundle.packages:
-                self.console.print(
-                    f"[yellow]Warning:[/yellow] Package '{pkg}' not in bundle '{bundle_name}'"
-                )
-            else:
-                del bundle.packages[pkg]
+                raise BundleError(
+                    f"Package '{pkg}' not in bundle '{bundle_name}'")
+            del bundle.packages[pkg]
 
         try:
             # Sync updated bundle first
