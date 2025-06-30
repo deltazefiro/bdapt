@@ -14,12 +14,8 @@ COMMANDS:
   add <bundle> <pkgs...>      Add packages to a bundle
 
   rm <bundle> <pkgs...>       Remove packages from a bundle
-    --keep-pkg                Update bundle but keep packages on the system (mark as manual)
-    --force                   Force removal of packages from the system, even if manually installed or required by other bundles
 
   del <bundle>                Delete the bundle
-    --keep-pkg                Remove bundle but keep packages (mark as manually installed)
-    --force                   Force removal of packages from the system, even if manually installed or required by other bundles
 
   ls                          List all bundles
     --tree                    Show as dependency tree
@@ -28,16 +24,9 @@ COMMANDS:
 
   sync <bundle>               Force reinstall bundle to match definition
 
-  completion <shell>          Show shell completion setup instructions
-
 OPTIONS:
   -y, --non-interactive       Skip all confirmation prompts
   -q, --quiet                 Minimal output
-
-TAB COMPLETION:
-  bdapt supports tab completion for bundle names and package names.
-  To enable, run: bdapt completion <shell>
-  Supported shells: bash, zsh, fish, powershell
 
 EXAMPLE WORKFLOW:
 # Create and install web stack

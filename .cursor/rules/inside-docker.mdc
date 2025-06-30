@@ -1,8 +1,8 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 You are running inside a docker. You are free to perform apt operations.
-The `bdapt` has already be installed with editable flag.
-Test your modified code by directly running `bdapt`.
+The `bdapt` has already be installed with editable flag. Test your modified code by directly running `bdapt`.
+All dependencies (equivs, sudo, etc.) has been installed.

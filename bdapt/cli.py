@@ -281,56 +281,5 @@ def sync(
     manager.sync_bundle(bundle, non_interactive)
 
 
-@app.command(name="completion")
-def completion(
-    shell: str = typer.Argument(
-        ...,
-        help="Shell to generate completion for (bash, zsh, fish, powershell)",
-    ),
-) -> None:
-    """Show instructions for enabling shell completion."""
-    if shell == "bash":
-        console.print("[yellow]To enable bash completion for bdapt:[/yellow]")
-        console.print("1. Install bash-completion if not already installed:")
-        console.print("   sudo apt install bash-completion  # Ubuntu/Debian")
-        console.print("   sudo yum install bash-completion  # CentOS/RHEL")
-        console.print("\n2. Add the following to your ~/.bashrc:")
-        console.print("   eval \"$(_BDAPT_COMPLETE=bash_source bdapt)\"")
-        console.print("\n3. Restart your shell or run: source ~/.bashrc")
-    elif shell == "zsh":
-        console.print("[yellow]To enable zsh completion for bdapt:[/yellow]")
-        console.print("Add the following to your ~/.zshrc:")
-        console.print("   eval \"$(_BDAPT_COMPLETE=zsh_source bdapt)\"")
-        console.print("\nThen restart your shell or run: source ~/.zshrc")
-    elif shell == "fish":
-        console.print("[yellow]To enable fish completion for bdapt:[/yellow]")
-        console.print("Run the following command:")
-        console.print("   eval (env _BDAPT_COMPLETE=fish_source bdapt)")
-        console.print("\nOr add it to your ~/.config/fish/config.fish")
-    elif shell == "powershell":
-        console.print(
-            "[yellow]To enable PowerShell completion for bdapt:[/yellow]")
-        console.print("Add the following to your PowerShell profile:")
-        console.print(
-            "   Register-ArgumentCompleter -Native -CommandName bdapt -ScriptBlock {")
-        console.print(
-            "       param($commandName, $wordToComplete, $cursorPosition)")
-        console.print("       $env:_BDAPT_COMPLETE = 'powershell_complete'")
-        console.print("       $env:COMP_WORDS = $wordToComplete")
-        console.print("       $env:COMP_CWORD = $cursorPosition")
-        console.print("       bdapt 2>&1 | ForEach-Object {")
-        console.print("           if ($_ -match '^([^\\t]+)\\t(.*)') {")
-        console.print(
-            "               [System.Management.Automation.CompletionResult]::new($matches[1], $matches[1], 'ParameterValue', $matches[2])")
-        console.print("           }")
-        console.print("       }")
-        console.print("   }")
-    else:
-        console.print(f"[red]Error:[/red] Unsupported shell: {shell}")
-        console.print(
-            "[yellow]Supported shells:[/yellow] bash, zsh, fish, powershell")
-        raise typer.Exit(1)
-
-
 if __name__ == "__main__":
     app()

@@ -141,7 +141,7 @@ class MetapackageManager:
         bundle_name: str,
         bundle: Bundle,
         non_interactive: bool = False
-    ) -> None:
+    ) -> bool:
         """Create and install a metapackage for the given bundle.
 
         Args:
@@ -149,22 +149,29 @@ class MetapackageManager:
             bundle: Bundle definition
             non_interactive: If True, run apt commands non-interactively
 
+        Returns:
+            True if the installation was confirmed, False otherwise.
+
         Raises:
             MetapackageError: If metapackage creation or installation fails
         """
         deb_file = self.build_metapackage(bundle_name, bundle)
-
+        confirmed = False
         try:
             # Install the metapackage
-            self.apt_runner.install_package_file(
+            confirmed = self.apt_runner.install_package_file(
                 str(deb_file), non_interactive)
+            return confirmed
         except Exception as e:
+            if isinstance(e, MetapackageError):
+                raise
             raise MetapackageError(
                 f"Failed to install metapackage: {e}") from e
         finally:
-            # Clean up temporary files
-            import shutil
-            shutil.rmtree(deb_file.parent, ignore_errors=True)
+            # Clean up temporary files only if the operation was not confirmed
+            if not confirmed:
+                import shutil
+                shutil.rmtree(deb_file.parent, ignore_errors=True)
 
     def remove_metapackage(
         self,

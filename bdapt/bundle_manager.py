@@ -5,10 +5,10 @@ from typing import List, Optional, Set
 from rich.console import Console
 
 from .apt_operations import AptCommandRunner
-from .exceptions import BundleError
+from .exceptions import BundleError, MetapackageError
 from .metapackage import MetapackageManager
 from .models import Bundle, PackageSpec
-from .storage import BundleStore, StorageError
+from .storage import BundleStorage, BundleStore, StorageError
 from .validators import (
     validate_bundle_name,
     validate_package_list,
@@ -34,6 +34,37 @@ class BundleManager:
         self.console = console or Console()
         self.apt_runner = AptCommandRunner(self.console)
         self.metapackage_manager = MetapackageManager(self.console)
+
+    def _execute_bundle_operation(
+        self,
+        bundle_name: str,
+        bundle: Bundle,
+        storage: "BundleStorage",
+        non_interactive: bool = False,
+        is_new_bundle: bool = False
+    ) -> None:
+        """Execute a bundle operation with confirmation and state management."""
+        try:
+            confirmed = self.metapackage_manager.install_metapackage(
+                bundle_name, bundle, non_interactive
+            )
+
+            if confirmed:
+                if is_new_bundle:
+                    storage.bundles[bundle_name] = bundle
+                self.store.save(storage)
+                self.console.print(
+                    f"[green]✓[/green] Bundle '{bundle_name}' operation confirmed and definition updated."
+                )
+            else:
+                # This is raised when the user cancels the operation.
+                raise BundleError(
+                    f"Operation for bundle '{bundle_name}' cancelled by user.")
+
+        except MetapackageError as e:
+            # Metapackage errors are critical and should not result in a saved state change.
+            raise BundleError(
+                f"Failed to process metapackage for bundle '{bundle_name}': {e}") from e
 
     def _get_packages_in_other_bundles(self, exclude_bundle: str) -> Set[str]:
         """Get set of packages that are in other bundles.
@@ -160,19 +191,9 @@ class BundleManager:
             packages={pkg: PackageSpec() for pkg in packages}
         )
 
-        try:
-            # Install metapackage first - only save to storage if successful
-            self.metapackage_manager.install_metapackage(
-                name, bundle, non_interactive)
-
-            # Add to storage only after successful installation
-            storage.bundles[name] = bundle
-            self.store.save(storage)
-            self.console.print(f"[green]✓[/green] Created bundle '{name}'")
-
-        except Exception as e:
-            # Don't save if installation failed
-            raise BundleError(f"Failed to create bundle: {e}") from e
+        self._execute_bundle_operation(
+            name, bundle, storage, non_interactive, is_new_bundle=True)
+        self.console.print(f"[green]✓[/green] Created bundle '{name}'")
 
     def add_packages(
         self,
@@ -205,15 +226,11 @@ class BundleManager:
         for pkg in packages:
             bundle.packages[pkg] = PackageSpec()
 
-        try:
-            self.metapackage_manager.install_metapackage(
-                bundle_name, bundle, non_interactive)
-            self.store.save(storage)
-            self.console.print(
-                f"[green]✓[/green] Added packages to bundle '{bundle_name}'"
-            )
-        except Exception as e:
-            raise BundleError(f"Failed to add packages: {e}") from e
+        self._execute_bundle_operation(
+            bundle_name, bundle, storage, non_interactive)
+        self.console.print(
+            f"[green]✓[/green] Added packages to bundle '{bundle_name}'"
+        )
 
     def remove_packages(
         self,
@@ -255,23 +272,18 @@ class BundleManager:
         for pkg in packages:
             del bundle.packages[pkg]
 
-        try:
-            # Update metapackage first
-            self.metapackage_manager.install_metapackage(
-                bundle_name, bundle, non_interactive)
-            self.store.save(storage)
+        # Update metapackage first
+        self._execute_bundle_operation(
+            bundle_name, bundle, storage, non_interactive)
 
-            # Handle system package removal
-            self._handle_package_removal(
-                packages, bundle_name, keep_packages, force, non_interactive
-            )
+        # Handle system package removal
+        self._handle_package_removal(
+            packages, bundle_name, keep_packages, force, non_interactive
+        )
 
-            self.console.print(
-                f"[green]✓[/green] Removed packages from bundle '{bundle_name}'"
-            )
-
-        except Exception as e:
-            raise BundleError(f"Failed to remove packages: {e}") from e
+        self.console.print(
+            f"[green]✓[/green] Removed packages from bundle '{bundle_name}'"
+        )
 
     def delete_bundle(
         self,
@@ -300,10 +312,11 @@ class BundleManager:
 
         try:
             # Remove metapackage
-            success = self.metapackage_manager.remove_metapackage(
+            confirmed = self.metapackage_manager.remove_metapackage(
                 bundle_name, non_interactive)
-            if not success:
-                raise BundleError("Failed to remove metapackage")
+            if not confirmed:
+                raise BundleError(
+                    f"Deletion of bundle '{bundle_name}' cancelled by user.")
 
             # Remove from storage
             del storage.bundles[bundle_name]
@@ -342,13 +355,10 @@ class BundleManager:
 
         bundle = storage.bundles[bundle_name]
 
-        try:
-            self.metapackage_manager.install_metapackage(
-                bundle_name, bundle, non_interactive)
-            self.console.print(
-                f"[green]✓[/green] Synced bundle '{bundle_name}'")
-        except Exception as e:
-            raise BundleError(f"Failed to sync bundle: {e}") from e
+        self._execute_bundle_operation(
+            bundle_name, bundle, storage, non_interactive)
+        self.console.print(
+            f"[green]✓[/green] Synced bundle '{bundle_name}'")
 
     def list_bundles(self) -> None:
         """List all bundles."""
