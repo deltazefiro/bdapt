@@ -4,6 +4,32 @@ When installing applications on Debian from sources outside of APT, you often ne
 
 bdapt (Bundle APT, pronounced "bee-dapt") is a lightweight Python tool that manages groups of package dependencies as cohesive bundles. It uses equivs to create metapackages, allowing dependencies to be installed, tracked, and removed together. You can easily modify bundles by adding or removing packages as needed.
 
+> [!WARNING] Early Development Disclaimer
+> 
+> This project is in early development stage and has been extensively developed with generative AI assistance.
+>
+> - **Not production ready** - This tool is experimental and may have bugs or unexpected behavior
+> - **Use at your own risk** - Always test in a safe environment before using on important systems
+> - **Backup recommended** - Consider backing up your system state before using bdapt
+> - **Community feedback welcome** - Please report issues and contribute to help improve the tool
+
+
+# Installation
+
+You can install bdapt using pip:
+
+```bash
+pip install bdapt
+```
+
+Or if you use uv:
+
+```bash
+uv tool install bdapt
+```
+
+# Usage
+
 ```plaintext
 bdapt [command] [options]
 
