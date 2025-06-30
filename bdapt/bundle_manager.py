@@ -41,11 +41,12 @@ class BundleManager:
         bundle: Bundle,
         storage: "BundleStorage",
         non_interactive: bool = False,
+        ignore_errors: bool = False,
         is_new_bundle: bool = False
     ) -> None:
         """Sync a bundle with the system."""
         self.metapackage_manager.install_metapackage(
-            bundle_name, bundle, non_interactive
+            bundle_name, bundle, non_interactive, ignore_errors
         )
 
         if is_new_bundle:
@@ -57,6 +58,7 @@ class BundleManager:
         name: str,
         packages: List[str],
         description: str = "",
+        ignore_errors: bool = False,
         non_interactive: bool = False
     ) -> None:
         """Create a new bundle.
@@ -89,13 +91,14 @@ class BundleManager:
         )
 
         self._sync_bundle(
-            name, bundle, storage, non_interactive, is_new_bundle=True)
+            name, bundle, storage, non_interactive, ignore_errors, is_new_bundle=True)
         self.console.print(f"[green]✓[/green] Created bundle '{name}'")
 
     def add_packages(
         self,
         bundle_name: str,
         packages: List[str],
+        ignore_errors: bool = False,
         non_interactive: bool = False
     ) -> None:
         """Add packages to an existing bundle.
@@ -103,6 +106,7 @@ class BundleManager:
         Args:
             bundle_name: Name of the bundle
             packages: List of package names to add
+            ignore_errors: If True, ignore errors
             non_interactive: If True, run apt commands non-interactively
 
         Exits:
@@ -127,7 +131,7 @@ class BundleManager:
             bundle.packages[pkg] = PackageSpec()
 
         self._sync_bundle(
-            bundle_name, bundle, storage, non_interactive)
+            bundle_name, bundle, storage, non_interactive, ignore_errors)
         self.console.print(
             f"[green]✓[/green] Added packages to bundle '{bundle_name}'"
         )
@@ -136,18 +140,16 @@ class BundleManager:
         self,
         bundle_name: str,
         packages: List[str],
-        keep_packages: bool = False,
-        force: bool = False,
         non_interactive: bool = False,
+        ignore_errors: bool = False,
     ) -> None:
         """Remove packages from a bundle.
 
         Args:
             bundle_name: Name of the bundle
             packages: List of package names to remove
-            keep_packages: If True, keep packages on system (mark as manual)
-            force: If True, force removal even if in other bundles or manually installed
             non_interactive: If True, run apt commands non-interactively
+            ignore_errors: If True, ignore errors
 
         Exits:
             With code 1 if operation fails
@@ -178,7 +180,7 @@ class BundleManager:
 
         # Update metapackage first
         self._sync_bundle(
-            bundle_name, bundle, storage, non_interactive)
+            bundle_name, bundle, storage, non_interactive, ignore_errors)
 
         self.console.print(
             f"[green]✓[/green] Removed packages from bundle '{bundle_name}'"
@@ -187,16 +189,13 @@ class BundleManager:
     def delete_bundle(
         self,
         bundle_name: str,
-        keep_packages: bool = False,
-        force: bool = False,
-        non_interactive: bool = False
+        non_interactive: bool = False,
+        ignore_errors: bool = False,
     ) -> None:
         """Delete a bundle completely.
 
         Args:
             bundle_name: Name of the bundle to delete
-            keep_packages: If True, keep packages on system (mark as manual)
-            force: If True, force removal even if in other bundles or manually installed
             non_interactive: If True, run apt commands non-interactively
 
         Exits:
@@ -212,7 +211,7 @@ class BundleManager:
         try:
             # Remove metapackage
             self.metapackage_manager.remove_metapackage(
-                bundle_name, non_interactive)
+                bundle_name, non_interactive, ignore_errors)
 
             # Remove from storage
             del storage.bundles[bundle_name]
@@ -229,12 +228,13 @@ class BundleManager:
                 f"[red]Error: Failed to delete bundle: {e}[/red]")
             raise typer.Exit(1)
 
-    def sync_bundle(self, bundle_name: str, non_interactive: bool = False) -> None:
+    def sync_bundle(self, bundle_name: str, non_interactive: bool = False, ignore_errors: bool = False) -> None:
         """Force reinstall bundle to match definition.
 
         Args:
             bundle_name: Name of the bundle to sync
             non_interactive: If True, run apt commands non-interactively
+            ignore_errors: If True, ignore errors
 
         Exits:
             With code 1 if operation fails
@@ -249,7 +249,7 @@ class BundleManager:
         bundle = storage.bundles[bundle_name]
 
         self._sync_bundle(
-            bundle_name, bundle, storage, non_interactive)
+            bundle_name, bundle, storage, non_interactive, ignore_errors)
 
         self.console.print(
             f"[green]✓[/green] Synced bundle '{bundle_name}'"

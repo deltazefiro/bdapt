@@ -137,6 +137,12 @@ def new(
         "--desc",
         help="Bundle description",
     ),
+    ignore_errors: bool = typer.Option(
+        False,
+        "-f",
+        "--ignore-errors",
+        help="Ignore errors",
+    ),
 ) -> None:
     """Create and install new bundle."""
     if not packages:
@@ -144,12 +150,9 @@ def new(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
-    try:
-        manager = BundleManager(console=console)
-        manager.create_bundle(bundle, packages, desc or "", non_interactive)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Operation cancelled[/yellow]")
-        raise typer.Exit(130)
+    manager = BundleManager(console=console)
+    manager.create_bundle(bundle, packages, desc or "",
+                          non_interactive, ignore_errors)
 
 
 @app.command()
@@ -158,6 +161,12 @@ def add(
                                  autocompletion=complete_bundle_name),
     packages: List[str] = typer.Argument(
         ..., help="Package names to add", autocompletion=complete_package_name),
+    ignore_errors: bool = typer.Option(
+        False,
+        "-f",
+        "--ignore-errors",
+        help="Ignore errors",
+    ),
 ) -> None:
     """Add packages to a bundle."""
     if not packages:
@@ -165,12 +174,8 @@ def add(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
-    try:
-        manager = BundleManager(console=console)
-        manager.add_packages(bundle, packages, non_interactive)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Operation cancelled[/yellow]")
-        raise typer.Exit(130)
+    manager = BundleManager(console=console)
+    manager.add_packages(bundle, packages, non_interactive, ignore_errors)
 
 
 @app.command()
@@ -179,15 +184,11 @@ def rm(
                                  autocompletion=complete_bundle_name),
     packages: List[str] = typer.Argument(
         ..., help="Package names to remove", autocompletion=complete_bundle_package_name),
-    keep_pkg: bool = typer.Option(
+    ignore_errors: bool = typer.Option(
         False,
-        "--keep-pkg",
-        help="Update bundle but keep packages on the system (mark as manual)",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        help="Force removal of packages from the system, even if manually installed or required by other bundles",
+        "-f",
+        "--ignore-errors",
+        help="Ignore errors",
     ),
 ) -> None:
     """Remove packages from a bundle."""
@@ -196,38 +197,26 @@ def rm(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
-    try:
-        manager = BundleManager(console=console)
-        manager.remove_packages(
-            bundle, packages, keep_packages=keep_pkg, force=force, non_interactive=non_interactive)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Operation cancelled[/yellow]")
-        raise typer.Exit(130)
+    manager = BundleManager(console=console)
+    manager.remove_packages(
+        bundle, packages, non_interactive=non_interactive, ignore_errors=ignore_errors)
 
 
 @app.command(name="del")
 def delete(
     bundle: str = typer.Argument(..., help="Bundle name",
                                  autocompletion=complete_bundle_name),
-    keep_pkg: bool = typer.Option(
+    ignore_errors: bool = typer.Option(
         False,
-        "--keep-pkg",
-        help="Remove bundle but keep packages (mark as manually installed)",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        help="Force removal of packages from the system, even if manually installed or required by other bundles",
+        "-f",
+        "--ignore-errors",
+        help="Ignore errors",
     ),
 ) -> None:
     """Delete the bundle."""
-    try:
-        manager = BundleManager(console=console)
-        manager.delete_bundle(bundle, keep_packages=keep_pkg,
-                              force=force, non_interactive=non_interactive)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Operation cancelled[/yellow]")
-        raise typer.Exit(130)
+    manager = BundleManager(console=console)
+    manager.delete_bundle(
+        bundle, non_interactive=non_interactive, ignore_errors=ignore_errors)
 
 
 @app.command()
@@ -239,18 +228,14 @@ def ls(
     ),
 ) -> None:
     """List all bundles."""
-    try:
-        manager = BundleManager(console=console)
+    manager = BundleManager(console=console)
 
-        if tree:
-            # TODO: Implement tree view
-            console.print("[yellow]Tree view not yet implemented[/yellow]")
-            return
+    if tree:
+        # TODO: Implement tree view
+        console.print("[yellow]Tree view not yet implemented[/yellow]")
+        return
 
-        manager.list_bundles()
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Operation cancelled[/yellow]")
-        raise typer.Exit(130)
+    manager.list_bundles()
 
 
 @app.command()
@@ -259,26 +244,24 @@ def show(
                                  autocompletion=complete_bundle_name),
 ) -> None:
     """Display bundle contents."""
-    try:
-        manager = BundleManager(console=console)
-        manager.show_bundle(bundle)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Operation cancelled[/yellow]")
-        raise typer.Exit(130)
+    manager = BundleManager(console=console)
+    manager.show_bundle(bundle)
 
 
 @app.command()
 def sync(
     bundle: str = typer.Argument(..., help="Bundle name",
                                  autocompletion=complete_bundle_name),
+    ignore_errors: bool = typer.Option(
+        False,
+        "-f",
+        "--ignore-errors",
+        help="Ignore errors",
+    ),
 ) -> None:
     """Force reinstall bundle to match definition."""
-    try:
-        manager = BundleManager(console=console)
-        manager.sync_bundle(bundle, non_interactive)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Operation cancelled[/yellow]")
-        raise typer.Exit(130)
+    manager = BundleManager(console=console)
+    manager.sync_bundle(bundle, non_interactive, ignore_errors)
 
 
 if __name__ == "__main__":

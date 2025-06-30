@@ -148,7 +148,8 @@ class MetapackageManager:
         self,
         bundle_name: str,
         bundle: Bundle,
-        non_interactive: bool = False
+        non_interactive: bool = False,
+        ignore_errors: bool = False
     ) -> None:
         """Create and install a metapackage for the given bundle.
 
@@ -156,9 +157,7 @@ class MetapackageManager:
             bundle_name: Name of the bundle
             bundle: Bundle definition
             non_interactive: If True, run apt commands non-interactively
-
-        Returns:
-            True if the installation was confirmed, False otherwise.
+            ignore_errors: If True, ignore errors
 
         Exits:
             With code 1 if metapackage creation or installation fails
@@ -167,7 +166,7 @@ class MetapackageManager:
         try:
             # Install the metapackage
             self.apt_runner.run_apt_command(
-                [str(deb_file)], non_interactive)
+                [str(deb_file)], non_interactive=non_interactive, ignore_errors=ignore_errors)
         except typer.Exit:
             raise
         except Exception as e:
@@ -181,17 +180,16 @@ class MetapackageManager:
     def remove_metapackage(
         self,
         bundle_name: str,
-        non_interactive: bool = False
+        non_interactive: bool = False,
+        ignore_errors: bool = False
     ) -> None:
         """Remove a metapackage from the system.
 
         Args:
             bundle_name: Name of the bundle
             non_interactive: If True, run apt commands non-interactively
-
-        Returns:
-            True if the removal was confirmed, False otherwise.
+            ignore_errors: If True, ignore errors
         """
         metapackage_name = self.get_metapackage_name(bundle_name)
         self.apt_runner.run_apt_command(
-            [metapackage_name + "-"], non_interactive)  # `apt install packagename-` will remove the package
+            [metapackage_name + "-"], non_interactive=non_interactive, ignore_errors=ignore_errors)  # `apt install packagename-` will remove the package
