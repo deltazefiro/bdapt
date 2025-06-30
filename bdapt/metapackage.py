@@ -7,10 +7,10 @@ from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 
+import typer
 from rich.console import Console
 
 from .apt_operations import AptCommandRunner
-from .exceptions import MetapackageError
 from .models import Bundle
 
 
@@ -40,14 +40,15 @@ class MetapackageManager:
     def check_prerequisites(self) -> None:
         """Check that required tools are available.
 
-        Raises:
-            MetapackageError: If required tools are missing
+        Exits:
+            With code 1 if required tools are missing
         """
         if not self.apt_runner.check_command_exists("equivs-build"):
-            raise MetapackageError(
-                "equivs-build not found. Please install equivs package: "
-                "sudo apt install equivs"
+            self.console.print(
+                "[red]Error: equivs-build not found. Please install equivs package: "
+                "sudo apt install equivs[/red]"
             )
+            raise typer.Exit(1)
 
     def generate_control_file_content(
         self,
@@ -99,8 +100,8 @@ class MetapackageManager:
         Returns:
             Path to the generated .deb file
 
-        Raises:
-            MetapackageError: If metapackage creation fails
+        Exits:
+            With code 1 if metapackage creation fails
         """
         self.check_prerequisites()
 
@@ -124,24 +125,31 @@ class MetapackageManager:
             # Find generated .deb file
             deb_files = list(temp_dir.glob("*.deb"))
             if not deb_files:
-                raise MetapackageError(
-                    "equivs-build did not generate a .deb file")
+                self.console.print(
+                    "[red]Error: equivs-build did not generate a .deb file[/red]"
+                )
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                raise typer.Exit(1)
 
             return deb_files[0]
 
+        except typer.Exit:
+            # Clean up temp directory on failure and re-raise
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
         except Exception as e:
             # Clean up temp directory on failure
             shutil.rmtree(temp_dir, ignore_errors=True)
-            if isinstance(e, MetapackageError):
-                raise
-            raise MetapackageError(f"Failed to build metapackage: {e}") from e
+            self.console.print(
+                f"[red]Error: Failed to build metapackage: {e}[/red]")
+            raise typer.Exit(1)
 
     def install_metapackage(
         self,
         bundle_name: str,
         bundle: Bundle,
         non_interactive: bool = False
-    ) -> bool:
+    ) -> None:
         """Create and install a metapackage for the given bundle.
 
         Args:
@@ -152,19 +160,21 @@ class MetapackageManager:
         Returns:
             True if the installation was confirmed, False otherwise.
 
-        Raises:
-            MetapackageError: If metapackage creation or installation fails
+        Exits:
+            With code 1 if metapackage creation or installation fails
         """
         deb_file = self.build_metapackage(bundle_name, bundle)
         try:
             # Install the metapackage
-            return self.apt_runner.run_apt_command(
+            self.apt_runner.run_apt_command(
                 [str(deb_file)], non_interactive)
+        except typer.Exit:
+            raise
         except Exception as e:
-            if isinstance(e, MetapackageError):
-                raise
-            raise MetapackageError(
-                f"Failed to install metapackage: {e}") from e
+            self.console.print(
+                f"[red]Error: Failed to install metapackage: {e}[/red]"
+            )
+            raise typer.Exit(1)
         finally:
             shutil.rmtree(deb_file.parent, ignore_errors=True)
 
@@ -172,7 +182,7 @@ class MetapackageManager:
         self,
         bundle_name: str,
         non_interactive: bool = False
-    ) -> bool:
+    ) -> None:
         """Remove a metapackage from the system.
 
         Args:
@@ -183,5 +193,5 @@ class MetapackageManager:
             True if the removal was confirmed, False otherwise.
         """
         metapackage_name = self.get_metapackage_name(bundle_name)
-        return self.apt_runner.run_apt_command(
+        self.apt_runner.run_apt_command(
             [metapackage_name + "-"], non_interactive)  # `apt install packagename-` will remove the package

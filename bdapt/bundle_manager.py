@@ -2,13 +2,13 @@
 
 from typing import List, Optional, Set
 
+import typer
 from rich.console import Console
 
 from .apt_operations import AptCommandRunner
-from .exceptions import BundleError, MetapackageError
 from .metapackage import MetapackageManager
 from .models import Bundle, PackageSpec
-from .storage import BundleStorage, BundleStore, StorageError
+from .storage import BundleStorage, BundleStore
 from .validators import (
     validate_bundle_name,
     validate_package_list,
@@ -44,24 +44,13 @@ class BundleManager:
         is_new_bundle: bool = False
     ) -> None:
         """Sync a bundle with the system."""
-        try:
-            confirmed = self.metapackage_manager.install_metapackage(
-                bundle_name, bundle, non_interactive
-            )
+        self.metapackage_manager.install_metapackage(
+            bundle_name, bundle, non_interactive
+        )
 
-            if confirmed:
-                if is_new_bundle:
-                    storage.bundles[bundle_name] = bundle
-                self.store.save(storage)
-            else:
-                # This is raised when the user cancels the operation.
-                raise BundleError(
-                    f"Operation for bundle '{bundle_name}' cancelled by user.")
-
-        except MetapackageError as e:
-            # Metapackage errors are critical and should not result in a saved state change.
-            raise BundleError(
-                f"Failed to process metapackage for bundle '{bundle_name}': {e}") from e
+        if is_new_bundle:
+            storage.bundles[bundle_name] = bundle
+        self.store.save(storage)
 
     def create_bundle(
         self,
@@ -78,8 +67,8 @@ class BundleManager:
             description: Bundle description
             non_interactive: If True, run apt commands non-interactively
 
-        Raises:
-            BundleError: If bundle creation fails
+        Exits:
+            With code 1 if bundle creation fails
         """
         # Validate inputs
         validate_bundle_name(name)
@@ -89,7 +78,9 @@ class BundleManager:
         storage = self.store.load()
 
         if name in storage.bundles:
-            raise BundleError(f"Bundle '{name}' already exists")
+            self.console.print(
+                f"[red]Error: Bundle '{name}' already exists[/red]")
+            raise typer.Exit(1)
 
         # Create bundle definition
         bundle = Bundle(
@@ -114,8 +105,8 @@ class BundleManager:
             packages: List of package names to add
             non_interactive: If True, run apt commands non-interactively
 
-        Raises:
-            BundleError: If operation fails
+        Exits:
+            With code 1 if operation fails
         """
         # Validate inputs
         validate_package_list(packages, "adding packages")
@@ -124,7 +115,9 @@ class BundleManager:
         storage = self.store.load()
 
         if bundle_name not in storage.bundles:
-            raise BundleError(f"Bundle '{bundle_name}' does not exist")
+            self.console.print(
+                f"[red]Error: Bundle '{bundle_name}' does not exist[/red]")
+            raise typer.Exit(1)
 
         bundle = storage.bundles[bundle_name]
 
@@ -156,8 +149,8 @@ class BundleManager:
             force: If True, force removal even if in other bundles or manually installed
             non_interactive: If True, run apt commands non-interactively
 
-        Raises:
-            BundleError: If operation fails
+        Exits:
+            With code 1 if operation fails
         """
         # Validate inputs
         validate_package_list(packages, "removing packages")
@@ -165,15 +158,19 @@ class BundleManager:
         storage = self.store.load()
 
         if bundle_name not in storage.bundles:
-            raise BundleError(f"Bundle '{bundle_name}' does not exist")
+            self.console.print(
+                f"[red]Error: Bundle '{bundle_name}' does not exist[/red]")
+            raise typer.Exit(1)
 
         bundle = storage.bundles[bundle_name]
 
         # Verify packages exist in bundle
         for pkg in packages:
             if pkg not in bundle.packages:
-                raise BundleError(
-                    f"Package '{pkg}' not in bundle '{bundle_name}'")
+                self.console.print(
+                    f"[red]Error: Package '{pkg}' not in bundle '{bundle_name}'[/red]"
+                )
+                raise typer.Exit(1)
 
         # Remove packages from bundle definition
         for pkg in packages:
@@ -202,21 +199,20 @@ class BundleManager:
             force: If True, force removal even if in other bundles or manually installed
             non_interactive: If True, run apt commands non-interactively
 
-        Raises:
-            BundleError: If operation fails
+        Exits:
+            With code 1 if operation fails
         """
         storage = self.store.load()
 
         if bundle_name not in storage.bundles:
-            raise BundleError(f"Bundle '{bundle_name}' does not exist")
+            self.console.print(
+                f"[red]Error: Bundle '{bundle_name}' does not exist[/red]")
+            raise typer.Exit(1)
 
         try:
             # Remove metapackage
-            confirmed = self.metapackage_manager.remove_metapackage(
+            self.metapackage_manager.remove_metapackage(
                 bundle_name, non_interactive)
-            if not confirmed:
-                raise BundleError(
-                    f"Deletion of bundle '{bundle_name}' cancelled by user.")
 
             # Remove from storage
             del storage.bundles[bundle_name]
@@ -225,8 +221,13 @@ class BundleManager:
             self.console.print(
                 f"[green]✓[/green] Deleted bundle '{bundle_name}'")
 
+        except typer.Exit:
+            # Re-raise typer.Exit to preserve exit codes
+            raise
         except Exception as e:
-            raise BundleError(f"Failed to delete bundle: {e}") from e
+            self.console.print(
+                f"[red]Error: Failed to delete bundle: {e}[/red]")
+            raise typer.Exit(1)
 
     def sync_bundle(self, bundle_name: str, non_interactive: bool = False) -> None:
         """Force reinstall bundle to match definition.
@@ -235,20 +236,24 @@ class BundleManager:
             bundle_name: Name of the bundle to sync
             non_interactive: If True, run apt commands non-interactively
 
-        Raises:
-            BundleError: If operation fails
+        Exits:
+            With code 1 if operation fails
         """
         storage = self.store.load()
 
         if bundle_name not in storage.bundles:
-            raise BundleError(f"Bundle '{bundle_name}' does not exist")
+            self.console.print(
+                f"[red]Error: Bundle '{bundle_name}' does not exist[/red]")
+            raise typer.Exit(1)
 
         bundle = storage.bundles[bundle_name]
 
         self._sync_bundle(
             bundle_name, bundle, storage, non_interactive)
+
         self.console.print(
-            f"[green]✓[/green] Synced bundle '{bundle_name}'")
+            f"[green]✓[/green] Synced bundle '{bundle_name}'"
+        )
 
     def list_bundles(self) -> None:
         """List all bundles."""
@@ -259,36 +264,36 @@ class BundleManager:
             return
 
         for name, bundle in storage.bundles.items():
-            desc = f" - {bundle.description}" if bundle.description else ""
             pkg_count = len(bundle.packages)
             self.console.print(
-                f"[blue]{name}[/blue]{desc} ({pkg_count} packages)"
-            )
+                f"[bold]{name}[/bold] ({pkg_count} packages) [dim]{bundle.description or ''}[/dim]")
 
     def show_bundle(self, bundle_name: str) -> None:
-        """Show bundle details.
+        """Display detailed information about a bundle.
 
         Args:
             bundle_name: Name of the bundle to show
 
-        Raises:
-            BundleError: If bundle doesn't exist
+        Exits:
+            With code 1 if bundle doesn't exist
         """
         storage = self.store.load()
 
         if bundle_name not in storage.bundles:
-            raise BundleError(f"Bundle '{bundle_name}' does not exist")
+            self.console.print(
+                f"[red]Error: Bundle '{bundle_name}' does not exist[/red]")
+            raise typer.Exit(1)
 
         bundle = storage.bundles[bundle_name]
 
-        self.console.print(f"[blue]Bundle: {bundle_name}[/blue]")
-        if bundle.description:
-            self.console.print(f"Description: {bundle.description}")
+        self.console.print(f"[bold]Bundle:[/bold] {bundle_name}")
+        desc = bundle.description or "[dim]No description[/dim]"
+        self.console.print(f"[bold]Description:[/bold] {desc}")
 
         if bundle.packages:
-            self.console.print("Packages:")
-            for pkg, spec in bundle.packages.items():
-                version_info = f" ({spec.version})" if spec.version else ""
-                self.console.print(f"  • {pkg}{version_info}")
+            self.console.print(
+                f"[bold]Packages ({len(bundle.packages)}):[/bold]")
+            for pkg_name in sorted(bundle.packages.keys()):
+                self.console.print(f"  • {pkg_name}")
         else:
             self.console.print("[yellow]No packages in bundle[/yellow]")
