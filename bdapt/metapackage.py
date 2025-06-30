@@ -1,10 +1,11 @@
 """Metapackage creation and management utilities."""
 
+import shutil
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
 
 from rich.console import Console
 
@@ -130,7 +131,6 @@ class MetapackageManager:
 
         except Exception as e:
             # Clean up temp directory on failure
-            import shutil
             shutil.rmtree(temp_dir, ignore_errors=True)
             if isinstance(e, MetapackageError):
                 raise
@@ -156,22 +156,17 @@ class MetapackageManager:
             MetapackageError: If metapackage creation or installation fails
         """
         deb_file = self.build_metapackage(bundle_name, bundle)
-        confirmed = False
         try:
             # Install the metapackage
-            confirmed = self.apt_runner.install_package_file(
-                str(deb_file), non_interactive)
-            return confirmed
+            return self.apt_runner.run_apt_command(
+                [str(deb_file)], non_interactive)
         except Exception as e:
             if isinstance(e, MetapackageError):
                 raise
             raise MetapackageError(
                 f"Failed to install metapackage: {e}") from e
         finally:
-            # Clean up temporary files only if the operation was not confirmed
-            if not confirmed:
-                import shutil
-                shutil.rmtree(deb_file.parent, ignore_errors=True)
+            shutil.rmtree(deb_file.parent, ignore_errors=True)
 
     def remove_metapackage(
         self,
@@ -185,7 +180,8 @@ class MetapackageManager:
             non_interactive: If True, run apt commands non-interactively
 
         Returns:
-            True if successful, False otherwise
+            True if the removal was confirmed, False otherwise.
         """
         metapackage_name = self.get_metapackage_name(bundle_name)
-        return self.apt_runner.remove_package(metapackage_name, non_interactive)
+        return self.apt_runner.run_apt_command(
+            [metapackage_name + "-"], non_interactive)  # `apt install packagename-` will remove the package

@@ -35,7 +35,7 @@ class BundleManager:
         self.apt_runner = AptCommandRunner(self.console)
         self.metapackage_manager = MetapackageManager(self.console)
 
-    def _execute_bundle_operation(
+    def _sync_bundle(
         self,
         bundle_name: str,
         bundle: Bundle,
@@ -43,7 +43,7 @@ class BundleManager:
         non_interactive: bool = False,
         is_new_bundle: bool = False
     ) -> None:
-        """Execute a bundle operation with confirmation and state management."""
+        """Sync a bundle with the system."""
         try:
             confirmed = self.metapackage_manager.install_metapackage(
                 bundle_name, bundle, non_interactive
@@ -53,9 +53,6 @@ class BundleManager:
                 if is_new_bundle:
                     storage.bundles[bundle_name] = bundle
                 self.store.save(storage)
-                self.console.print(
-                    f"[green]✓[/green] Bundle '{bundle_name}' operation confirmed and definition updated."
-                )
             else:
                 # This is raised when the user cancels the operation.
                 raise BundleError(
@@ -65,97 +62,6 @@ class BundleManager:
             # Metapackage errors are critical and should not result in a saved state change.
             raise BundleError(
                 f"Failed to process metapackage for bundle '{bundle_name}': {e}") from e
-
-    def _get_packages_in_other_bundles(self, exclude_bundle: str) -> Set[str]:
-        """Get set of packages that are in other bundles.
-
-        Args:
-            exclude_bundle: Bundle name to exclude from search
-
-        Returns:
-            Set of package names
-        """
-        storage = self.store.load()
-        packages = set()
-
-        for name, bundle in storage.bundles.items():
-            if name != exclude_bundle:
-                packages.update(bundle.packages.keys())
-
-        return packages
-
-    def _determine_packages_to_remove(
-        self,
-        packages: List[str],
-        exclude_bundle: str,
-        force: bool = False
-    ) -> List[str]:
-        """Determine which packages can be safely removed from the system.
-
-        Args:
-            packages: List of package names to consider for removal
-            exclude_bundle: Bundle name to exclude from other bundle checks
-            force: If True, ignore safety checks
-
-        Returns:
-            List of packages that can be removed
-        """
-        if force:
-            return packages
-
-        other_bundle_packages = self._get_packages_in_other_bundles(
-            exclude_bundle)
-        packages_to_remove = []
-
-        for pkg in packages:
-            if pkg in other_bundle_packages:
-                self.console.print(
-                    f"[yellow]Keeping '{pkg}' (required by other bundles)[/yellow]"
-                )
-                continue
-
-            if self.apt_runner.is_package_manually_installed(pkg):
-                self.console.print(
-                    f"[yellow]Keeping '{pkg}' (manually installed)[/yellow]"
-                )
-                continue
-
-            packages_to_remove.append(pkg)
-
-        return packages_to_remove
-
-    def _handle_package_removal(
-        self,
-        packages: List[str],
-        exclude_bundle: str,
-        keep_packages: bool = False,
-        force: bool = False,
-        non_interactive: bool = False
-    ) -> None:
-        """Handle removal of packages from the system.
-
-        Args:
-            packages: List of package names to remove
-            exclude_bundle: Bundle name to exclude from other bundle checks
-            keep_packages: If True, don't remove packages from system
-            force: If True, force removal even if in other bundles or manually installed
-            non_interactive: If True, run apt commands non-interactively
-        """
-        if keep_packages:
-            return
-
-        packages_to_remove = self._determine_packages_to_remove(
-            packages, exclude_bundle, force
-        )
-
-        if packages_to_remove:
-            success = self.apt_runner.remove_packages(
-                packages_to_remove, non_interactive)
-            if not success:
-                self.console.print(
-                    "[yellow]Package removal cancelled or failed. "
-                    "Bundle definition updated. Run 'sudo apt autoremove' to remove unused packages.[/yellow]"
-                )
 
     def create_bundle(
         self,
@@ -191,7 +97,7 @@ class BundleManager:
             packages={pkg: PackageSpec() for pkg in packages}
         )
 
-        self._execute_bundle_operation(
+        self._sync_bundle(
             name, bundle, storage, non_interactive, is_new_bundle=True)
         self.console.print(f"[green]✓[/green] Created bundle '{name}'")
 
@@ -223,10 +129,11 @@ class BundleManager:
         bundle = storage.bundles[bundle_name]
 
         # Add new packages
+        # TODO: Parse pkg version spec
         for pkg in packages:
             bundle.packages[pkg] = PackageSpec()
 
-        self._execute_bundle_operation(
+        self._sync_bundle(
             bundle_name, bundle, storage, non_interactive)
         self.console.print(
             f"[green]✓[/green] Added packages to bundle '{bundle_name}'"
@@ -273,13 +180,8 @@ class BundleManager:
             del bundle.packages[pkg]
 
         # Update metapackage first
-        self._execute_bundle_operation(
+        self._sync_bundle(
             bundle_name, bundle, storage, non_interactive)
-
-        # Handle system package removal
-        self._handle_package_removal(
-            packages, bundle_name, keep_packages, force, non_interactive
-        )
 
         self.console.print(
             f"[green]✓[/green] Removed packages from bundle '{bundle_name}'"
@@ -308,8 +210,6 @@ class BundleManager:
         if bundle_name not in storage.bundles:
             raise BundleError(f"Bundle '{bundle_name}' does not exist")
 
-        bundle = storage.bundles[bundle_name]
-
         try:
             # Remove metapackage
             confirmed = self.metapackage_manager.remove_metapackage(
@@ -321,16 +221,6 @@ class BundleManager:
             # Remove from storage
             del storage.bundles[bundle_name]
             self.store.save(storage)
-
-            # Handle package removal
-            if not keep_packages:
-                packages_to_remove = self._determine_packages_to_remove(
-                    list(bundle.packages.keys()), bundle_name, force
-                )
-                if packages_to_remove:
-                    self.console.print(
-                        "[yellow]Run 'sudo apt autoremove' to remove unused packages[/yellow]"
-                    )
 
             self.console.print(
                 f"[green]✓[/green] Deleted bundle '{bundle_name}'")
@@ -355,7 +245,7 @@ class BundleManager:
 
         bundle = storage.bundles[bundle_name]
 
-        self._execute_bundle_operation(
+        self._sync_bundle(
             bundle_name, bundle, storage, non_interactive)
         self.console.print(
             f"[green]✓[/green] Synced bundle '{bundle_name}'")
