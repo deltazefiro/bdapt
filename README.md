@@ -2,7 +2,7 @@
 
 When installing applications on Debian from sources outside of APT, you often need to manually install multiple APT packages as dependencies. Later, when uninstalling the application, these dependencies aren't automatically removed by `apt autoremove` since they were marked as manually installed rather than auto-installed.
 
-bdapt (Bundle APT, pronounced "bee-dapt") is a lightweight Python tool that manages groups of package dependencies as cohesive bundles. It uses equivs to create metapackages, allowing dependencies to be installed, tracked, and removed together. You can easily modify bundles by adding or removing packages as needed.
+bdapt (Bundle APT, pronounced "bee-dapt") is a wrapper for APT that manages groups of package dependencies as cohesive bundles. It uses equivs to create metapackages, allowing dependencies to be installed, tracked, and removed together. You can easily modify bundles by adding or removing packages as needed.
 
 > [!WARNING] Early Development Disclaimer
 > 
