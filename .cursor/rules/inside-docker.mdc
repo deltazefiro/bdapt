@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+You are running inside a docker. You are free to perform apt operations.
+The `bdapt` has already be installed with editable flag.
+Test your modified code by directly running `bdapt`.

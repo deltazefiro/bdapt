@@ -73,11 +73,9 @@
     1. New bundle definition provided.
     2. Create a temporary directory using `tempfile.TemporaryDirectory()`
     3. Generate the control file content and run `equivs-build <control-file-path>` with `cwd` set to the temporary directory
-    4. Run `sudo apt install <path-to-generated.deb>`.
-       * Forward apt's output to the user for confirmation
-       * The `bundles.json` should represent if the metapackage is installed or not.
-         * If user cancels, do not update `bundles.json`.
-         * If this step succeeds or fails during dependency resolution (after metapackage is installed), update `bundles.json` to add the bundle definition.
+    4. Run `sudo dpkg --force-all -i install <path-to-generated.deb>`.
+      * If failed, do not update `bundles.json`.
+      * If succeeds, update `bundles.json` to add the bundle definition.
     5. All temporary files (control file, .deb) are automatically cleaned up
 
 ### 4. Command Implementation Details
@@ -88,6 +86,7 @@
   * `new`, `add` and `sync`
     1. Check or create bundle definition from `bundles.json`
     2. Sync the bundle.
+    3. Check 
   * `rm`
     1. Check if the bundle definition exists in `bundles.json`, load or raise an error.
     2. Sync the bundle with the new definition.

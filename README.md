@@ -28,9 +28,16 @@ COMMANDS:
 
   sync <bundle>               Force reinstall bundle to match definition
 
+  completion <shell>          Show shell completion setup instructions
+
 OPTIONS:
   -y, --non-interactive       Skip all confirmation prompts
   -q, --quiet                 Minimal output
+
+TAB COMPLETION:
+  bdapt supports tab completion for bundle names and package names.
+  To enable, run: bdapt completion <shell>
+  Supported shells: bash, zsh, fish, powershell
 
 EXAMPLE WORKFLOW:
 # Create and install web stack

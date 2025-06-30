@@ -7,11 +7,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, Optional
 
+from .exceptions import StorageError
 from .models import BundleStorage
-
-
-class StorageError(Exception):
-    """Raised when storage operations fail."""
 
 
 class BundleStore:
