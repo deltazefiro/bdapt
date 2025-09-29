@@ -26,7 +26,7 @@ class MetapackageManager:
         self.console = console
         self.apt_runner = AptCommandRunner(console)
 
-    def get_metapackage_name(self, bundle_name: str) -> str:
+    def _get_metapackage_name(self, bundle_name: str) -> str:
         """Get metapackage name for a bundle.
 
         Args:
@@ -37,7 +37,7 @@ class MetapackageManager:
         """
         return f"bdapt-{bundle_name}"
 
-    def check_prerequisites(self) -> None:
+    def _check_prerequisites(self) -> None:
         """Check that required tools are available.
 
         Exits:
@@ -50,7 +50,7 @@ class MetapackageManager:
             )
             raise typer.Exit(1)
 
-    def generate_control_file_content(
+    def _generate_control_file_content(
         self,
         bundle_name: str,
         bundle: Bundle
@@ -65,7 +65,7 @@ class MetapackageManager:
             Control file content as string
         """
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        metapackage_name = self.get_metapackage_name(bundle_name)
+        metapackage_name = self._get_metapackage_name(bundle_name)
 
         description = (
             bundle.description or
@@ -86,7 +86,7 @@ class MetapackageManager:
 
         return control_content
 
-    def build_metapackage(
+    def _build_metapackage(
         self,
         bundle_name: str,
         bundle: Bundle
@@ -103,14 +103,14 @@ class MetapackageManager:
         Exits:
             With code 1 if metapackage creation fails
         """
-        self.check_prerequisites()
+        self._check_prerequisites()
 
         temp_dir = Path(tempfile.mkdtemp())
         try:
             control_file = temp_dir / "control"
 
             # Generate and write control file
-            control_content = self.generate_control_file_content(
+            control_content = self._generate_control_file_content(
                 bundle_name, bundle)
             control_file.write_text(control_content)
 
@@ -162,7 +162,7 @@ class MetapackageManager:
         Exits:
             With code 1 if metapackage creation or installation fails
         """
-        deb_file = self.build_metapackage(bundle_name, bundle)
+        deb_file = self._build_metapackage(bundle_name, bundle)
         try:
             # Install the metapackage
             self.apt_runner.run_apt_command(
@@ -190,6 +190,6 @@ class MetapackageManager:
             non_interactive: If True, run apt commands non-interactively
             ignore_errors: If True, ignore errors
         """
-        metapackage_name = self.get_metapackage_name(bundle_name)
+        metapackage_name = self._get_metapackage_name(bundle_name)
         self.apt_runner.run_apt_command(
             [metapackage_name + "-"], non_interactive=non_interactive, ignore_errors=ignore_errors)  # `apt install packagename-` will remove the package
