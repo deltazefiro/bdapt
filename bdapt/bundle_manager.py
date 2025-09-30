@@ -45,15 +45,35 @@ class BundleManager:
         ignore_errors: bool = False,
         is_new_bundle: bool = False
     ) -> None:
-        """Sync a bundle with the system."""
+        """Sync a bundle with the system.
+
+        Follows the order specified in IMPL.md:
+        1. Build metapackage and dry-run
+        2. Get confirmation
+        3. Update bundle in storage
+        4. Run apt install
+        """
         try:
-            self.metapackage_manager.install_metapackage(
+            # Phase 1: Build, dry-run, and get confirmation
+            result = self.metapackage_manager.prepare_metapackage_install(
                 bundle_name, bundle, non_interactive, ignore_errors
             )
 
+            # If no changes are needed or errors are being ignored, return early
+            if result is None:
+                return
+
+            deb_file, temp_dir = result
+
+            # Phase 2: Update bundle in storage (after confirmation, before install)
             if is_new_bundle:
                 storage.bundles[bundle_name] = bundle
             self.store.save(storage)
+
+            # Phase 3: Complete the installation
+            self.metapackage_manager.complete_metapackage_install(
+                deb_file, temp_dir, ignore_errors
+            )
         except BdaptError as e:
             if not e.displayed:
                 self.console.print(f"[red]Error: {e.message}[/red]")

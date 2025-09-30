@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 
 from rich.console import Console
 
@@ -152,23 +153,30 @@ class MetapackageManager:
             "\nDo you want to proceed with these changes? [y/N]: ").strip().lower()
         return response in ['y', 'yes']
 
-    def install_metapackage(
+    def prepare_metapackage_install(
         self,
         bundle_name: str,
         bundle: Bundle,
         non_interactive: bool = False,
         ignore_errors: bool = False
-    ) -> None:
-        """Create and install a metapackage for the given bundle.
+    ) -> Optional[tuple[Path, Path]]:
+        """Build metapackage, run dry-run, and get confirmation.
+
+        This method performs all pre-installation steps. After this returns,
+        the caller should update storage before calling complete_metapackage_install.
 
         Args:
             bundle_name: Name of the bundle
             bundle: Bundle definition
-            non_interactive: If True, run apt commands non-interactively
+            non_interactive: If True, skip confirmation prompts
             ignore_errors: If True, ignore errors
 
+        Returns:
+            Tuple of (deb_file_path, temp_dir_path) if installation should proceed,
+            or None if no changes are needed or errors are being ignored
+
         Raises:
-            CommandError: If metapackage creation or installation fails
+            CommandError: If metapackage creation or dry-run fails
             UserAbortError: If user cancels the operation
         """
         deb_file = self._build_metapackage(bundle_name, bundle)
@@ -179,26 +187,61 @@ class MetapackageManager:
             try:
                 summary = self.apt_runner.run_apt_dry_run([str(deb_file)])
             except CommandError:
+                shutil.rmtree(temp_dir, ignore_errors=True)
                 if ignore_errors:
                     self.console.print(
                         "[yellow]Dry-run failed, but ignoring errors.[/yellow]")
-                    return
+                    return None
                 raise
             except KeyboardInterrupt:
+                shutil.rmtree(temp_dir, ignore_errors=True)
                 raise UserAbortError(
                     "Dry-run interrupted by user.", exit_code=130)
 
             if summary is None:
                 self.console.print(
                     "[green]No package changes required.[/green]")
-                return
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                return None
 
             # Ask for confirmation unless running non-interactively
             if not non_interactive:
                 if not self._confirm_installation(summary):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
                     raise UserAbortError(
                         "Operation cancelled by user.", exit_code=1)
 
+            return deb_file, temp_dir
+
+        except (CommandError, UserAbortError):
+            # These are already handled, just re-raise
+            raise
+        except Exception:
+            # Cleanup on unexpected errors
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
+
+    def complete_metapackage_install(
+        self,
+        deb_file: Path,
+        temp_dir: Path,
+        ignore_errors: bool = False
+    ) -> None:
+        """Complete the metapackage installation.
+
+        This should be called after prepare_metapackage_install and after
+        updating the bundle storage.
+
+        Args:
+            deb_file: Path to the .deb file
+            temp_dir: Temporary directory to clean up
+            ignore_errors: If True, ignore errors
+
+        Raises:
+            CommandError: If installation fails
+            UserAbortError: If user interrupts the operation
+        """
+        try:
             # Execute the actual installation
             try:
                 self.apt_runner.run_apt_install([str(deb_file)])

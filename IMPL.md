@@ -1,18 +1,20 @@
 update (rm, add, sync)
 - run "apt-get install --autoremove -f <bundle_file>"
   - dry run first, forward for confirmation
-    - cancelled -> Do not update bundle in store
-    - otherwise, update bundle in store
-  - run again with -y flag
-  - if failed during install, update bundle in store but prompt user broken bundle (`sync` for fixing, `del -f` for removing)
+    - cancelled -> raise and exit
+    - otherwise, continue
+  - update bundle in store
+  - run apt again with -y flag
+    - if failed, prompt user broken bundle (`sync` for fixing, `del -f` for removing)
 
 del
 - run "apt-get install --autoremove -f <bundle_name>-"
   - dry run first, forward for confirmation
-    - cancelled -> Do not update bundle in store (update anyway if `-f`)
-    - otherwise, update bundle in store
-  - run again with -y flag
-  - if failed during install, do *not* remove bundle in store but prompt user broken bundle (`sync` for fixing, `del -f` for removing)
+    - cancelled -> raise and exit
+    - Do not update bundle in store for now
+  - run apt again with -y flag
+    - if failed, prompt user broken bundle (`sync` for fixing, `del -f` for removing)
+    - if successful, remove bundle in store
 
 
 cli.py - handles user input and calls bundle_manager, do inputs sanity checks
