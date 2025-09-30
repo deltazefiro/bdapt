@@ -2,15 +2,14 @@
 
 import shutil
 import tempfile
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 
-import typer
 from rich.console import Console
 
 from .apt_operations import AptCommandRunner
+from .exceptions import CommandError, UserAbortError
 from .models import Bundle
 
 
@@ -44,11 +43,9 @@ class MetapackageManager:
             With code 1 if required tools are missing
         """
         if not self.apt_runner.check_command_exists("equivs-build"):
-            self.console.print(
-                "[red]Error: equivs-build not found. Please install equivs package: "
-                "sudo apt install equivs[/red]"
+            raise CommandError(
+                "equivs-build not found. Please install equivs package: sudo apt install equivs"
             )
-            raise typer.Exit(1)
 
     def _generate_control_file_content(
         self,
@@ -125,24 +122,35 @@ class MetapackageManager:
             # Find generated .deb file
             deb_files = list(temp_dir.glob("*.deb"))
             if not deb_files:
-                self.console.print(
-                    "[red]Error: equivs-build did not generate a .deb file[/red]"
-                )
                 shutil.rmtree(temp_dir, ignore_errors=True)
-                raise typer.Exit(1)
+                raise CommandError("equivs-build did not generate a .deb file")
 
             return deb_files[0]
 
-        except typer.Exit:
+        except CommandError:
             # Clean up temp directory on failure and re-raise
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise
         except Exception as e:
             # Clean up temp directory on failure
             shutil.rmtree(temp_dir, ignore_errors=True)
-            self.console.print(
-                f"[red]Error: Failed to build metapackage: {e}[/red]")
-            raise typer.Exit(1)
+            raise CommandError(f"Failed to build metapackage: {e}")
+
+    def _confirm_installation(self, summary: str) -> bool:
+        """Ask user to confirm installation based on dry-run summary.
+
+        Args:
+            summary: Package change summary from dry-run
+
+        Returns:
+            True if user confirms, False otherwise
+        """
+        self.console.print("[yellow]Package Changes:[/yellow]")
+        self.console.print(summary)
+
+        response = input(
+            "\nDo you want to proceed with these changes? [y/N]: ").strip().lower()
+        return response in ['y', 'yes']
 
     def install_metapackage(
         self,
@@ -159,23 +167,66 @@ class MetapackageManager:
             non_interactive: If True, run apt commands non-interactively
             ignore_errors: If True, ignore errors
 
-        Exits:
-            With code 1 if metapackage creation or installation fails
+        Raises:
+            CommandError: If metapackage creation or installation fails
+            UserAbortError: If user cancels the operation
         """
         deb_file = self._build_metapackage(bundle_name, bundle)
+        temp_dir = deb_file.parent
+
         try:
-            # Install the metapackage
-            self.apt_runner.run_apt_command(
-                [str(deb_file)], non_interactive=non_interactive, ignore_errors=ignore_errors)
-        except typer.Exit:
-            raise
-        except Exception as e:
-            self.console.print(
-                f"[red]Error: Failed to install metapackage: {e}[/red]"
-            )
-            raise typer.Exit(1)
+            # Perform dry-run to show what will be installed
+            try:
+                summary = self.apt_runner.run_apt_dry_run([str(deb_file)])
+            except CommandError:
+                if ignore_errors:
+                    self.console.print(
+                        "[yellow]Dry-run failed, but ignoring errors.[/yellow]")
+                    return
+                raise
+            except KeyboardInterrupt:
+                raise UserAbortError(
+                    "Dry-run interrupted by user.", exit_code=130)
+
+            if summary is None:
+                self.console.print(
+                    "[green]No package changes required.[/green]")
+                return
+
+            # Ask for confirmation unless running non-interactively
+            if not non_interactive:
+                if not self._confirm_installation(summary):
+                    raise UserAbortError(
+                        "Operation cancelled by user.", exit_code=1)
+
+            # Execute the actual installation
+            try:
+                self.apt_runner.run_apt_install([str(deb_file)])
+                self.console.print(
+                    "[green]APT operation completed successfully.[/green]")
+            except CommandError as e:
+                if ignore_errors:
+                    self.console.print(
+                        "[yellow]Installation failed, but ignoring errors.[/yellow]")
+                    return
+                # Enhance error message with recovery instructions
+                enhanced_msg = (
+                    f"{e.message}\n\n"
+                    "The bundle definition has been updated, but the system may be in an inconsistent state.\n"
+                    "You may need to run 'bdapt sync <bundle>' to reinstall or 'bdapt del -f <bundle>' to clean up."
+                )
+                raise CommandError(
+                    enhanced_msg, stderr=e.stderr, stdout=e.stdout)
+            except KeyboardInterrupt:
+                raise UserAbortError(
+                    "Installation interrupted by user.\n\n"
+                    "The system may be in an inconsistent state.\n"
+                    "You may need to run 'bdapt sync <bundle>' to reinstall or 'bdapt del -f <bundle>' to clean up.",
+                    exit_code=130
+                )
+
         finally:
-            shutil.rmtree(deb_file.parent, ignore_errors=True)
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     def remove_metapackage(
         self,
@@ -189,7 +240,57 @@ class MetapackageManager:
             bundle_name: Name of the bundle
             non_interactive: If True, run apt commands non-interactively
             ignore_errors: If True, ignore errors
+
+        Raises:
+            CommandError: If metapackage removal fails
+            UserAbortError: If user cancels the operation
         """
         metapackage_name = self._get_metapackage_name(bundle_name)
-        self.apt_runner.run_apt_command(
-            [metapackage_name + "-"], non_interactive=non_interactive, ignore_errors=ignore_errors)  # `apt install packagename-` will remove the package
+        # `apt install packagename-` will remove the package
+        package_spec = metapackage_name + "-"
+
+        try:
+            # Perform dry-run to show what will be removed
+            try:
+                summary = self.apt_runner.run_apt_dry_run([package_spec])
+            except CommandError:
+                if ignore_errors:
+                    self.console.print(
+                        "[yellow]Dry-run failed, but ignoring errors.[/yellow]")
+                    return
+                raise
+            except KeyboardInterrupt:
+                raise UserAbortError(
+                    "Dry-run interrupted by user.", exit_code=130)
+
+            if summary is None:
+                self.console.print(
+                    "[green]No package changes required.[/green]")
+                return
+
+            # Ask for confirmation unless running non-interactively
+            if not non_interactive:
+                # Reuse confirmation method
+                if not self._confirm_installation(summary):
+                    raise UserAbortError(
+                        "Operation cancelled by user.", exit_code=1)
+
+            # Execute the actual removal
+            try:
+                self.apt_runner.run_apt_install([package_spec])
+                self.console.print(
+                    "[green]Metapackage removal completed successfully.[/green]")
+            except CommandError:
+                if ignore_errors:
+                    self.console.print(
+                        "[yellow]Removal failed, but ignoring errors.[/yellow]")
+                    return
+                raise
+            except KeyboardInterrupt:
+                raise UserAbortError(
+                    "Removal interrupted by user.", exit_code=130)
+
+        except (CommandError, UserAbortError):
+            raise
+        except Exception as e:
+            raise CommandError(f"Failed to remove metapackage: {e}")

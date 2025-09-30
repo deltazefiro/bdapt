@@ -7,13 +7,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, Optional
 
-import typer
-from rich.console import Console
-
+from .exceptions import StorageError
 from .models import BundleStorage
-
-# Module-level console for error output
-_console = Console(stderr=True)
 
 
 class BundleStore:
@@ -47,8 +42,7 @@ class BundleStore:
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
             yield
         except OSError as e:
-            _console.print(f"[red]Error: Failed to acquire lock: {e}[/red]")
-            raise typer.Exit(1)
+            raise StorageError(f"Failed to acquire lock: {e}")
         finally:
             if lock_fd is not None:
                 fcntl.flock(lock_fd, fcntl.LOCK_UN)
@@ -65,9 +59,7 @@ class BundleStore:
                     data = json.load(f)
                 return BundleStorage.model_validate(data)
             except (json.JSONDecodeError, ValueError) as e:
-                _console.print(
-                    f"[red]Error: Failed to load bundles: {e}[/red]")
-                raise typer.Exit(1)
+                raise StorageError(f"Failed to load bundles: {e}")
 
     def save(self, storage: BundleStorage) -> None:
         """Save bundle storage to disk with locking."""
@@ -81,6 +73,4 @@ class BundleStore:
                         sort_keys=True,
                     )
             except OSError as e:
-                _console.print(
-                    f"[red]Error: Failed to save bundles: {e}[/red]")
-                raise typer.Exit(1)
+                raise StorageError(f"Failed to save bundles: {e}")
