@@ -221,6 +221,13 @@ class BundleManager:
         for pkg in packages:
             bundle.packages[pkg] = PackageSpec()
 
+        # Verify packages not already exist in bundle
+        for pkg in packages:
+            if pkg not in bundle.packages:
+                console.print(
+                    f"[red]Error: Package '{pkg}' already in bundle '{bundle_name}'[/red]")
+                raise typer.Exit(1)
+
         self._install_metapackage(
             bundle_name, bundle, non_interactive, ignore_errors)
 
