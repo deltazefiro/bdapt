@@ -7,6 +7,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 
 from .apt_operations import AptCommandRunner
+from . import console as console_module
 from .console import console
 from .exceptions import CommandError
 from .metapackage import MetapackageContext
@@ -46,7 +47,6 @@ class BundleManager:
         self,
         bundle_name: str,
         bundle: Bundle,
-        non_interactive: bool = False,
         ignore_errors: bool = False
     ) -> None:
         """Create and install a metapackage for the given bundle.
@@ -74,7 +74,7 @@ class BundleManager:
                     raise typer.Exit(130)
 
             # Confirm with user unless non-interactive or no changes
-            if summary and not non_interactive:
+            if summary and not console_module.non_interactive:
                 self._confirm_operation(summary)
 
             # Update bundle in store
@@ -102,7 +102,6 @@ class BundleManager:
     def _remove_metapackage(
         self,
         bundle_name: str,
-        non_interactive: bool = False,
         ignore_errors: bool = False
     ) -> None:
         """Remove a metapackage from the system.
@@ -136,7 +135,7 @@ class BundleManager:
                 raise typer.Exit(130)
 
         # Confirm with user unless non-interactive or no changes
-        if summary and not non_interactive:
+        if summary and not console_module.non_interactive:
             self._confirm_operation(summary)
 
         # Execute the removal
@@ -168,8 +167,7 @@ class BundleManager:
         name: str,
         packages: List[str],
         description: str = "",
-        ignore_errors: bool = False,
-        non_interactive: bool = False
+        ignore_errors: bool = False
     ) -> None:
         """Create a new bundle.
         """
@@ -189,7 +187,7 @@ class BundleManager:
             packages={pkg: PackageSpec() for pkg in packages}
         )
 
-        self._install_metapackage(name, bundle, non_interactive, ignore_errors)
+        self._install_metapackage(name, bundle, ignore_errors)
 
         # Save bundle after successful installation
         storage.bundles[name] = bundle
@@ -201,8 +199,7 @@ class BundleManager:
         self,
         bundle_name: str,
         packages: List[str],
-        ignore_errors: bool = False,
-        non_interactive: bool = False
+        ignore_errors: bool = False
     ) -> None:
         """Add packages to an existing bundle.
         """
@@ -229,8 +226,7 @@ class BundleManager:
                     f"[red]Error: Package '{pkg}' already in bundle '{bundle_name}'[/red]")
                 raise typer.Exit(1)
 
-        self._install_metapackage(
-            bundle_name, bundle, non_interactive, ignore_errors)
+        self._install_metapackage(bundle_name, bundle, ignore_errors)
 
         # Save bundle after successful installation
         self.store.save(storage)
@@ -242,8 +238,7 @@ class BundleManager:
         self,
         bundle_name: str,
         packages: List[str],
-        non_interactive: bool = False,
-        ignore_errors: bool = False,
+        ignore_errors: bool = False
     ) -> None:
         """Remove packages from a bundle.
         """
@@ -269,8 +264,7 @@ class BundleManager:
         for pkg in packages:
             del bundle.packages[pkg]
 
-        self._install_metapackage(
-            bundle_name, bundle, non_interactive, ignore_errors)
+        self._install_metapackage(bundle_name, bundle, ignore_errors)
 
         # Save bundle after successful installation
         self.store.save(storage)
@@ -281,8 +275,7 @@ class BundleManager:
     def delete_bundle(
         self,
         bundle_name: str,
-        non_interactive: bool = False,
-        ignore_errors: bool = False,
+        ignore_errors: bool = False
     ) -> None:
         """Delete a bundle completely.
         """
@@ -294,7 +287,7 @@ class BundleManager:
             raise typer.Exit(1)
 
         # Remove metapackage
-        self._remove_metapackage(bundle_name, non_interactive, ignore_errors)
+        self._remove_metapackage(bundle_name, ignore_errors)
 
         # Remove from storage
         del storage.bundles[bundle_name]
@@ -305,7 +298,6 @@ class BundleManager:
     def sync_bundle(
         self,
         bundle_name: str,
-        non_interactive: bool = False,
         ignore_errors: bool = False
     ) -> None:
         """Force reinstall bundle to match definition.
@@ -319,8 +311,7 @@ class BundleManager:
 
         bundle = storage.bundles[bundle_name]
 
-        self._install_metapackage(
-            bundle_name, bundle, non_interactive, ignore_errors)
+        self._install_metapackage(bundle_name, bundle, ignore_errors)
 
         console.print(f"[green]✓[/green] Synced bundle '{bundle_name}'")
 

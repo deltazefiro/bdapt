@@ -7,15 +7,12 @@ import typer
 from rich.traceback import install
 
 from .bundle_manager import BundleManager
+from . import console as console_module
 from .console import console
 from .storage import BundleStore
 
 # Install rich traceback handler
 install(show_locals=True)
-
-# Global state
-quiet = False
-non_interactive = False
 
 app = typer.Typer(
     name="bdapt",
@@ -114,11 +111,10 @@ def main(
     ),
 ) -> None:
     """bdapt: Bundle APT - Manage groups of APT packages as dependencies."""
-    global quiet, non_interactive
-    quiet = quiet_flag
-    non_interactive = non_interactive_flag
+    console_module.quiet = quiet_flag
+    console_module.non_interactive = non_interactive_flag
 
-    if quiet:
+    if quiet_flag:
         console.quiet = True
 
     if ctx.invoked_subcommand is None:
@@ -151,8 +147,7 @@ def new(
         raise typer.Exit(1)
 
     manager = BundleManager()
-    manager.create_bundle(bundle, packages, desc or "",
-                          non_interactive, ignore_errors)
+    manager.create_bundle(bundle, packages, desc or "", ignore_errors=ignore_errors)
 
 
 @app.command()
@@ -175,7 +170,7 @@ def add(
         raise typer.Exit(1)
 
     manager = BundleManager()
-    manager.add_packages(bundle, packages, non_interactive, ignore_errors)
+    manager.add_packages(bundle, packages, ignore_errors=ignore_errors)
 
 
 @app.command()
@@ -198,8 +193,7 @@ def rm(
         raise typer.Exit(1)
 
     manager = BundleManager()
-    manager.remove_packages(
-        bundle, packages, non_interactive=non_interactive, ignore_errors=ignore_errors)
+    manager.remove_packages(bundle, packages, ignore_errors=ignore_errors)
 
 
 @app.command(name="del")
@@ -215,8 +209,7 @@ def delete(
 ) -> None:
     """Delete the bundle."""
     manager = BundleManager()
-    manager.delete_bundle(
-        bundle, non_interactive=non_interactive, ignore_errors=ignore_errors)
+    manager.delete_bundle(bundle, ignore_errors=ignore_errors)
 
 
 @app.command()
@@ -261,7 +254,7 @@ def sync(
 ) -> None:
     """Force reinstall bundle to match definition."""
     manager = BundleManager()
-    manager.sync_bundle(bundle, non_interactive, ignore_errors)
+    manager.sync_bundle(bundle, ignore_errors=ignore_errors)
 
 
 if __name__ == "__main__":

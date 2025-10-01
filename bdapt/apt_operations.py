@@ -5,6 +5,7 @@ import subprocess
 from contextlib import nullcontext
 from typing import Any, List, Optional
 
+from . import console as console_module
 from .console import console
 from .exceptions import CommandError
 
@@ -89,8 +90,9 @@ class AptCommandRunner:
         Raises:
             CommandError: If dry-run fails
         """
-        cmd = ["sudo", "apt-get", "install", "--autoremove", "-f"] + \
-            packages + ["--dry-run"]
+        cmd = ["sudo", "apt-get", "install", "--autoremove", "-f"]
+        cmd.extend(packages)
+        cmd.append("--dry-run")
 
         try:
             result = self.run_command(
@@ -116,8 +118,10 @@ class AptCommandRunner:
         Raises:
             CommandError: If installation fails
         """
-        cmd = ["sudo", "apt-get", "install",
-               "--autoremove", "-f", "-y"] + packages
+        cmd = ["sudo", "apt-get", "install", "--autoremove", "-f", "-y"]
+        if console_module.quiet:
+            cmd.append("-qq")
+        cmd.extend(packages)
 
         try:
             self.run_command(cmd, check=True)
