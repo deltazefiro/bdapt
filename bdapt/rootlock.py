@@ -13,8 +13,13 @@ def _elevate():
     """Re-run the current script with sudo if not root."""
     if os.getuid() == 0:
         return
-    args = [sys.executable] + sys.argv
-    os.execlp("sudo", "sudo", *args)
+    try:
+        args = [sys.executable] + sys.argv
+        os.execlp("sudo", "sudo", *args)
+    except Exception as e:
+        console.print(
+            f"[red]Unable to elevate to root: {e}[/red]")
+        typer.Exit(1)
 
 
 def _acquire_lock(lockfile):
