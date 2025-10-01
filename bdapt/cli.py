@@ -1,21 +1,19 @@
 """CLI interface for bdapt."""
 
 import subprocess
-import sys
 from typing import List, Optional
 
 import typer
-from rich.console import Console
 from rich.traceback import install
 
 from .bundle_manager import BundleManager
+from .console import console
 from .storage import BundleStore
 
 # Install rich traceback handler
 install(show_locals=True)
 
 # Global state
-console = Console()
 quiet = False
 non_interactive = False
 
@@ -152,7 +150,7 @@ def new(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
-    manager = BundleManager(console=console)
+    manager = BundleManager()
     manager.create_bundle(bundle, packages, desc or "",
                           non_interactive, ignore_errors)
 
@@ -176,7 +174,7 @@ def add(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
-    manager = BundleManager(console=console)
+    manager = BundleManager()
     manager.add_packages(bundle, packages, non_interactive, ignore_errors)
 
 
@@ -199,7 +197,7 @@ def rm(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
-    manager = BundleManager(console=console)
+    manager = BundleManager()
     manager.remove_packages(
         bundle, packages, non_interactive=non_interactive, ignore_errors=ignore_errors)
 
@@ -216,7 +214,7 @@ def delete(
     ),
 ) -> None:
     """Delete the bundle."""
-    manager = BundleManager(console=console)
+    manager = BundleManager()
     manager.delete_bundle(
         bundle, non_interactive=non_interactive, ignore_errors=ignore_errors)
 
@@ -230,7 +228,7 @@ def ls(
     ),
 ) -> None:
     """List all bundles."""
-    manager = BundleManager(console=console)
+    manager = BundleManager()
 
     if tree:
         # TODO: Implement tree view
@@ -246,7 +244,7 @@ def show(
                                  autocompletion=complete_bundle_name),
 ) -> None:
     """Display bundle contents."""
-    manager = BundleManager(console=console)
+    manager = BundleManager()
     manager.show_bundle(bundle)
 
 
@@ -262,7 +260,7 @@ def sync(
     ),
 ) -> None:
     """Force reinstall bundle to match definition."""
-    manager = BundleManager(console=console)
+    manager = BundleManager()
     manager.sync_bundle(bundle, non_interactive, ignore_errors)
 
 

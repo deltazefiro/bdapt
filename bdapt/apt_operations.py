@@ -2,23 +2,15 @@
 
 import re
 import subprocess
+from contextlib import nullcontext
 from typing import Any, List, Optional
 
-from rich.console import Console
-
+from .console import console
 from .exceptions import CommandError
 
 
 class AptCommandRunner:
     """Handles execution of APT commands."""
-
-    def __init__(self, console: Console):
-        """Initialize the APT command runner.
-
-        Args:
-            console: Rich console for output
-        """
-        self.console = console
 
     def check_command_exists(self, command: str) -> bool:
         """Check if a command exists on the system.
@@ -81,9 +73,10 @@ class AptCommandRunner:
         **kwargs: Any
     ) -> subprocess.CompletedProcess:
         try:
-            if show_output:
-                self.console.print(f"[dim]Running: {' '.join(cmd)}[/dim]")
-            result = subprocess.run(cmd, check=check, **kwargs)
+            ctx = console.status(
+                f"Running: {' '.join(cmd)}") if show_output else nullcontext()
+            with ctx:
+                result = subprocess.run(cmd, check=check, **kwargs)
             return result
         except FileNotFoundError:
             raise CommandError(f"Command not found: {cmd[0]}")
@@ -108,13 +101,12 @@ class AptCommandRunner:
                 cmd,
                 capture_output=True,
                 text=True,
-                check=True,
-                show_output=False
+                check=True
             )
             return self.parse_apt_output(result.stdout)
         except subprocess.CalledProcessError as e:
             raise CommandError(
-                f"APT dry-run failed: {e.stderr or e.stdout}",
+                f"APT dry-run failed: {' '.join(cmd)}",
                 stderr=e.stderr,
                 stdout=e.stdout
             )
@@ -132,10 +124,10 @@ class AptCommandRunner:
                "--autoremove", "-f", "-y"] + packages
 
         try:
-            self.run_command(cmd, check=True, show_output=False)
+            self.run_command(cmd, check=True)
         except subprocess.CalledProcessError as e:
             raise CommandError(
-                f"APT installation failed: {e.stderr or getattr(e, 'output', '')}",
+                f"APT installation failed: {' '.join(cmd)}",
                 stderr=e.stderr,
-                stdout=getattr(e, 'output', '')
+                stdout=e.stdout
             )
