@@ -6,8 +6,10 @@ from typing import List, Optional
 import typer
 from rich.traceback import install
 
-from .bundle_manager import BundleManager
+from bdapt.rootlock import aquire_root_and_lock
+
 from . import console as console_module
+from .bundle_manager import BundleManager
 from .console import console
 from .storage import BundleStore
 
@@ -146,8 +148,10 @@ def new(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
+    aquire_root_and_lock()
     manager = BundleManager()
-    manager.create_bundle(bundle, packages, desc or "", ignore_errors=ignore_errors)
+    manager.create_bundle(bundle, packages, desc or "",
+                          ignore_errors=ignore_errors)
 
 
 @app.command()
@@ -169,6 +173,7 @@ def add(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
+    aquire_root_and_lock()
     manager = BundleManager()
     manager.add_packages(bundle, packages, ignore_errors=ignore_errors)
 
@@ -192,6 +197,7 @@ def rm(
             "[red]Error:[/red] At least one package must be specified")
         raise typer.Exit(1)
 
+    aquire_root_and_lock()
     manager = BundleManager()
     manager.remove_packages(bundle, packages, ignore_errors=ignore_errors)
 
@@ -208,6 +214,7 @@ def delete(
     ),
 ) -> None:
     """Delete the bundle."""
+    aquire_root_and_lock()
     manager = BundleManager()
     manager.delete_bundle(bundle, ignore_errors=ignore_errors)
 
@@ -253,6 +260,7 @@ def sync(
     ),
 ) -> None:
     """Force reinstall bundle to match definition."""
+    aquire_root_and_lock()
     manager = BundleManager()
     manager.sync_bundle(bundle, ignore_errors=ignore_errors)
 
