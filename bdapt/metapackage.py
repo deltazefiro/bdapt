@@ -5,6 +5,7 @@ from pathlib import Path
 from textwrap import dedent
 
 from .apt_operations import AptCommandRunner
+from .console import console
 from .exceptions import CommandError
 from .models import Bundle
 
@@ -138,7 +139,8 @@ class MetapackageContext:
         Raises:
             CommandError: If metapackage creation fails
         """
-        self._build()
+        with console.status(f"Building metapackage for [bold]{self.bundle_name}[/bold]..."):
+            self._build()
         if self.deb_file is None:
             raise CommandError("Metapackage build did not produce a .deb file")
         return self.deb_file

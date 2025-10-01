@@ -69,14 +69,10 @@ class AptCommandRunner:
         self,
         cmd: List[str],
         check: bool = True,
-        show_output: bool = True,
         **kwargs: Any
     ) -> subprocess.CompletedProcess:
         try:
-            ctx = console.status(
-                f"Running: {' '.join(cmd)}") if show_output else nullcontext()
-            with ctx:
-                result = subprocess.run(cmd, check=check, **kwargs)
+            result = subprocess.run(cmd, check=check, **kwargs)
             return result
         except FileNotFoundError:
             raise CommandError(f"Command not found: {cmd[0]}")
@@ -99,8 +95,8 @@ class AptCommandRunner:
         try:
             result = self.run_command(
                 cmd,
-                capture_output=True,
                 text=True,
+                capture_output=True,
                 check=True
             )
             return self.parse_apt_output(result.stdout)

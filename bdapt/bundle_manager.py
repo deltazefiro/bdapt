@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import typer
 from rich.panel import Panel
+from rich.prompt import Confirm
 
 from .apt_operations import AptCommandRunner
 from .console import console
@@ -36,12 +37,9 @@ class BundleManager:
 
     def _confirm_operation(self, summary: str) -> None:
         console.print(Panel.fit(summary))
-        response = input(
-            "\nProceed with these changes? [y/N]: ").strip().lower()
-
-        if response not in ('y', 'yes'):
-            console.print(
-                "[red]Operation cancelled by user.[/red]")
+        response = Confirm.ask(
+            "Proceed with these changes? [y/N]: ", default=False)
+        if not response:
             raise typer.Exit(130)
 
     def _install_metapackage(
@@ -62,7 +60,8 @@ class BundleManager:
             # Dry-run to preview changes
             summary = None
             try:
-                summary = self.apt_runner.run_apt_dry_run([str(deb_file)])
+                with console.status(f"Validating bundle [bold]{bundle_name}[/bold]..."):
+                    summary = self.apt_runner.run_apt_dry_run([str(deb_file)])
             except KeyboardInterrupt:
                 console.print("[red]Dry-run interrupted by user.[/red]")
                 raise typer.Exit(130)
@@ -114,7 +113,8 @@ class BundleManager:
         # Dry-run to preview changes
         summary = None
         try:
-            summary = self.apt_runner.run_apt_dry_run([package_spec])
+            with console.status(f"Validating bundle [bold]{bundle_name}[/bold]..."):
+                summary = self.apt_runner.run_apt_dry_run([package_spec])
         except KeyboardInterrupt:
             console.print("[red]Dry-run interrupted by user.[/red]")
             raise typer.Exit(130)
@@ -150,7 +150,8 @@ class BundleManager:
         except CommandError as e:
             if ignore_errors:
                 console.print(
-                    "[yellow]Removal failed, but ignoring errors.[/yellow]")
+                    "[yellow]Removal failed, but ignoring errors.\n"
+                    "You may run [bold]apt autoremove[/bold] to clean up.[/yellow]")
             else:
                 e.print()
                 console.print("[yellow]The system may be in an inconsistent state. "
