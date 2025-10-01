@@ -10,6 +10,8 @@ from .storage import DATA_DIR
 LOCKFILE = "bdapt.lock"
 LOCKFILE_PATH = DATA_DIR / LOCKFILE
 
+_lock_file = None
+
 
 def _elevate():
     """Re-run the current script with sudo if not root."""
@@ -21,19 +23,20 @@ def _elevate():
     except Exception as e:
         console.print(
             f"[red]Unable to elevate to root: {e}[/red]")
-        typer.Exit(1)
+        raise typer.Exit(1)
 
 
 def _acquire_lock():
     """Acquire an exclusive lock on the specified lockfile."""
+    global _lock_file
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
-        fd = open(LOCKFILE_PATH, "w")
-        fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _lock_file = open(LOCKFILE_PATH, "w")
+        fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except (IOError, OSError):
         console.print(
             f"[red]Unable to acquire lock: {LOCKFILE_PATH}. Is another instance already running?[/red]")
-        typer.Exit(1)
+        raise typer.Exit(1)
 
 
 def aquire_root_and_lock():
