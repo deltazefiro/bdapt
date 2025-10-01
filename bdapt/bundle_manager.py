@@ -34,22 +34,6 @@ class BundleManager:
         self.store = store or BundleStore()
         self.apt_runner = AptCommandRunner()
 
-    def _dry_run_operation(self, package_spec: str, ignore_errors: bool = False) -> Optional[str]:
-        """Run apt dry-run and return summary.
-        """
-        try:
-            return self.apt_runner.run_apt_dry_run([package_spec])
-        except KeyboardInterrupt:
-            console.print("[red]Dry-run interrupted by user.[/red]")
-            raise typer.Exit(130)
-        except CommandError as e:
-            if ignore_errors:
-                console.print(
-                    "[yellow]Dry-run failed, but ignoring errors.[/yellow]")
-                return
-            e.print()
-            raise typer.Exit(130)
-
     def _confirm_operation(self, summary: str) -> None:
         console.print(Panel.fit(summary))
         response = input(
@@ -76,7 +60,19 @@ class BundleManager:
 
         with metapackage_ctx as deb_file:
             # Dry-run to preview changes
-            summary = self._dry_run_operation(str(deb_file), ignore_errors)
+            summary = None
+            try:
+                summary = self.apt_runner.run_apt_dry_run([str(deb_file)])
+            except KeyboardInterrupt:
+                console.print("[red]Dry-run interrupted by user.[/red]")
+                raise typer.Exit(130)
+            except CommandError as e:
+                if ignore_errors:
+                    console.print(
+                        "[yellow]Dry-run failed, but ignoring errors.[/yellow]")
+                else:
+                    e.print()
+                    raise typer.Exit(130)
 
             # Confirm with user unless non-interactive or no changes
             if summary and not non_interactive:
@@ -92,7 +88,7 @@ class BundleManager:
                 self.apt_runner.run_apt_install([str(deb_file)])
             except KeyboardInterrupt:
                 console.print("\n[red]Install interrupted by user.[/red]\n"
-                              f"[yellow]The system may be in an inconsistent state. Run [bold]bdapt sync {bundle_name}[/bold] to fix it.[/yellow]")
+                              f"[yellow]The system may be in an inconsistent state. Run [bold]bdapt sync {bundle_name}[/bold] to ensure integrity.[/yellow]")
                 raise typer.Exit(130)
             except CommandError as e:
                 if ignore_errors:
@@ -101,7 +97,7 @@ class BundleManager:
                 else:
                     e.print()
                     console.print(
-                        f"[yellow]The system may be in an inconsistent state. Run [bold]bdapt sync {bundle_name}[/bold] to fix it.[/yellow]")
+                        f"[yellow]The system may be in an inconsistent state. Run [bold]bdapt sync {bundle_name}[/bold] to ensure integrity.[/yellow]")
                     raise typer.Exit(130)
 
     def _remove_metapackage(
@@ -116,7 +112,28 @@ class BundleManager:
         package_spec = metapackage_name + "-"  # APT syntax to remove package
 
         # Dry-run to preview changes
-        summary = self._dry_run_operation(package_spec, ignore_errors)
+        summary = None
+        try:
+            summary = self.apt_runner.run_apt_dry_run([package_spec])
+        except KeyboardInterrupt:
+            console.print("[red]Dry-run interrupted by user.[/red]")
+            raise typer.Exit(130)
+        except CommandError as e:
+            if ignore_errors:
+                console.print(
+                    "[yellow]Dry-run failed, but ignoring errors.[/yellow]")
+            elif e.stderr and f"E: Unable to locate package {metapackage_name}" in e.stderr:
+                # If the package is not installed, we can just exit
+                console.print(
+                    f"[yellow]Bundle '{bundle_name}' exist in the bundle database, but not installed in the system. Perhaps you have a broken bundle?[/yellow]")
+                console.print(
+                    f"[yellow]Run [bold]bdapt del -f {bundle_name}[/bold] to force removal, or [bold]bdapt sync {bundle_name}[/bold] to install it.[/yellow]")
+                raise typer.Exit(130)
+            else:
+                e.print()
+                console.print(
+                    f"[yellow]If you believe this is a mistake, run [bold]bdapt del -f {bundle_name}[/bold] to force removal.[/yellow]")
+                raise typer.Exit(130)
 
         # Confirm with user unless non-interactive or no changes
         if summary and not non_interactive:
