@@ -6,7 +6,7 @@ import typer
 from rich.console import Console
 
 from .apt_operations import AptCommandRunner
-from .exceptions import CommandError, UserAbortError
+from .exceptions import CommandError
 from .metapackage import MetapackageContext
 from .models import Bundle, PackageSpec
 from .storage import BundleStore
@@ -94,7 +94,8 @@ class BundleManager:
             try:
                 self.apt_runner.run_apt_install([str(deb_file)])
             except KeyboardInterrupt:
-                self.console.print("[red]Install interrupted by user.[/red]")
+                self.console.print("\n[red]Install interrupted by user.[/red]\n"
+                                   f"[yellow]The system may be in an inconsistent state. Run [bold]bdapt sync {bundle_name}[/bold] to fix it.[/yellow]")
                 raise typer.Exit(130)
             except CommandError as e:
                 if ignore_errors:
@@ -102,8 +103,7 @@ class BundleManager:
                         "[yellow]Install failed, but ignoring errors.[/yellow]")
                 else:
                     self.console.print(f"[red]Install failed: {e}\n"
-                                       "System may be in a inconsistent state.\n"
-                                       f"Please run [bold]bdapt sync {bundle_name}[/bold] to fix it.\n[/red]")
+                                       f"[yellow]The system may be in an inconsistent state. Run [bold]bdapt sync {bundle_name}[/bold] to fix it.[/yellow]")
                     raise typer.Exit(130)
 
     def _remove_metapackage(
@@ -128,7 +128,9 @@ class BundleManager:
         try:
             self.apt_runner.run_apt_install([package_spec])
         except KeyboardInterrupt:
-            self.console.print("[red]Removal interrupted by user.[/red]")
+            self.console.print("\n[red]Removal interrupted by user.[/red]\n"
+                               "[yellow]The system may be in an inconsistent state. "
+                               f"Run [bold]bdapt sync {bundle_name}[/bold] to rollback or [bold]bdapt del {bundle_name}[/bold] to try again.[/yellow]")
             raise typer.Exit(130)
         except CommandError as e:
             if ignore_errors:
@@ -136,8 +138,8 @@ class BundleManager:
                     "[yellow]Removal failed, but ignoring errors.[/yellow]")
             else:
                 self.console.print(f"[red]Removal failed: {e}\n"
-                                   "System may be in a inconsistent state.\n"
-                                   f"Please run [bold]bdapt sync {bundle_name}[/bold] to fix it, or [bold]bdapt del -f {bundle_name}[/bold] to remove it.\n[/red]")
+                                   "[yellow]The system may be in an inconsistent state. "
+                                   f"Run [bold]bdapt sync {bundle_name}[/bold] to rollback or [bold]bdapt del -f {bundle_name}[/bold] to force removal.[/yellow]")
                 raise typer.Exit(130)
 
         # Update bundle in store
@@ -211,7 +213,7 @@ class BundleManager:
         self.store.save(storage)
 
         self.console.print(
-            f"[green]✓[/green] Added packages to bundle '{bundle_name}'")
+            f"[green]✓[/green] Added {len(packages)} package{len(packages) != 1 and 's' or ''} to bundle '{bundle_name}'")
 
     def remove_packages(
         self,
@@ -251,7 +253,7 @@ class BundleManager:
         self.store.save(storage)
 
         self.console.print(
-            f"[green]✓[/green] Removed packages from bundle '{bundle_name}'")
+            f"[green]✓[/green] Removed {len(packages)} package{len(packages) != 1 and 's' or ''} from bundle '{bundle_name}'")
 
     def delete_bundle(
         self,
@@ -311,7 +313,7 @@ class BundleManager:
             pkg_count = len(bundle.packages)
             desc = f" [dim]{bundle.description}[/dim]" if bundle.description else ""
             self.console.print(
-                f"[bold]{name}[/bold] ({pkg_count} packages){desc}")
+                f"[bold]{name}[/bold] ({pkg_count} package{pkg_count != 1 and 's' or ''}){desc}")
 
     def show_bundle(self, bundle_name: str) -> None:
         """Display detailed information about a bundle.
