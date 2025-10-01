@@ -3,26 +3,24 @@
 import json
 import os
 from pathlib import Path
-from typing import Optional
 
 from .exceptions import StorageError
 from .models import BundleStorage
+
+DATA_DIR = Path("/etc/bdapt")
 
 
 class BundleStore:
     """Manages persistent storage of bundle definitions."""
 
-    def __init__(self, data_dir: Optional[Path] = None):
+    def __init__(self):
         """Initialize the bundle store.
 
         Args:
             data_dir: Directory for data storage. Defaults to /etc/bdapt
         """
-        if data_dir is None:
-            data_dir = Path("/etc/bdapt")
-
-        self.data_dir = data_dir
-        self.bundles_file = data_dir / "bundles.json"
+        self.data_dir = DATA_DIR
+        self.bundles_file = DATA_DIR / "bundles.json"
 
     def _ensure_directory(self) -> None:
         """Ensure the data directory exists."""
