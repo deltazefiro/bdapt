@@ -90,7 +90,7 @@ class AptCommandRunner:
         Raises:
             CommandError: If dry-run fails
         """
-        cmd = ["sudo", "apt-get", "install", "--autoremove", "-f"]
+        cmd = ["apt-get", "install", "--autoremove", "-f"]
         cmd.extend(packages)
         cmd.append("--dry-run")
 
