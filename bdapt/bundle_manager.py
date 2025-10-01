@@ -35,28 +35,33 @@ class BundleManager:
         self.console = console or Console()
         self.apt_runner = AptCommandRunner(self.console)
 
-    def _confirm_operation(self, summary: str) -> None:
-        self.console.print("[yellow]Package Changes:[/yellow]")
-        self.console.print(summary)
-
-        response = input(
-            "\nDo you want to proceed with these changes? [y/N]: ").strip().lower()
-        if response not in ['y', 'yes']:
-            raise UserAbortError("Operation cancelled by user.")
-
-    def _run_dry_run(self, package_spec: str, ignore_errors: bool = False) -> Optional[str]:
+    def _dry_run_operation(self, package_spec: str, ignore_errors: bool = False) -> Optional[str]:
         """Run apt dry-run and return summary.
         """
         try:
             return self.apt_runner.run_apt_dry_run([package_spec])
         except KeyboardInterrupt:
-            raise UserAbortError("Dry-run interrupted by user.", exit_code=130)
-        except CommandError:
+            self.console.print("[red]Dry-run interrupted by user.[/red]")
+            raise typer.Exit(130)
+        except CommandError as e:
             if ignore_errors:
                 self.console.print(
                     "[yellow]Dry-run failed, but ignoring errors.[/yellow]")
-                return None
-            raise
+                return
+            self.console.print(f"[red]Dry-run failed: {e}[/red]")
+            raise typer.Exit(130)
+
+    def _confirm_operation(self, summary: str) -> None:
+        self.console.print("[yellow]Package Changes:[/yellow]\n")
+        self.console.print(summary)
+
+        response = input(
+            "\nProceed with these changes? [y/N]: ").strip().lower()
+
+        if response not in ('y', 'yes'):
+            self.console.print(
+                "[red]Operation cancelled by user.[/red]")
+            raise typer.Exit(130)
 
     def _install_metapackage(
         self,
@@ -74,26 +79,32 @@ class BundleManager:
 
         with metapackage_ctx as deb_file:
             # Dry-run to preview changes
-            summary = self._run_dry_run(str(deb_file), ignore_errors)
-            if summary is None:
-                summary = ""
+            summary = self._dry_run_operation(str(deb_file), ignore_errors)
 
-            # Confirm with user unless non-interactive
-            if not non_interactive:
-                self._confirm_operation(str(summary))
+            # Confirm with user unless non-interactive or no changes
+            if summary and not non_interactive:
+                self._confirm_operation(summary)
+
+            # Update bundle in store
+            storage = self.store.load()
+            storage.bundles[bundle_name] = bundle
+            self.store.save(storage)
 
             # Install the metapackage
             try:
                 self.apt_runner.run_apt_install([str(deb_file)])
             except KeyboardInterrupt:
-                raise UserAbortError(
-                    "Install interrupted by user.", exit_code=130)
-            except CommandError:
+                self.console.print("[red]Install interrupted by user.[/red]")
+                raise typer.Exit(130)
+            except CommandError as e:
                 if ignore_errors:
                     self.console.print(
                         "[yellow]Install failed, but ignoring errors.[/yellow]")
-                    return
-                raise
+                else:
+                    self.console.print(f"[red]Install failed: {e}\n"
+                                       "System may be in a inconsistent state.\n"
+                                       f"Please run [bold]bdapt sync {bundle_name}[/bold] to fix it.\n[/red]")
+                    raise typer.Exit(130)
 
     def _remove_metapackage(
         self,
@@ -107,26 +118,32 @@ class BundleManager:
         package_spec = metapackage_name + "-"  # APT syntax to remove package
 
         # Dry-run to preview changes
-        summary = self._run_dry_run(package_spec, ignore_errors)
-        if summary is None:
-            self.console.print("[green]No package changes required.[/green]")
-            return
+        summary = self._dry_run_operation(package_spec, ignore_errors)
 
-        # Confirm with user unless non-interactive
-        if not non_interactive:
+        # Confirm with user unless non-interactive or no changes
+        if summary and not non_interactive:
             self._confirm_operation(summary)
 
         # Execute the removal
         try:
             self.apt_runner.run_apt_install([package_spec])
         except KeyboardInterrupt:
-            raise UserAbortError("Removal interrupted by user.", exit_code=130)
-        except CommandError:
+            self.console.print("[red]Removal interrupted by user.[/red]")
+            raise typer.Exit(130)
+        except CommandError as e:
             if ignore_errors:
                 self.console.print(
                     "[yellow]Removal failed, but ignoring errors.[/yellow]")
-                return
-            raise
+            else:
+                self.console.print(f"[red]Removal failed: {e}\n"
+                                   "System may be in a inconsistent state.\n"
+                                   f"Please run [bold]bdapt sync {bundle_name}[/bold] to fix it, or [bold]bdapt del -f {bundle_name}[/bold] to remove it.\n[/red]")
+                raise typer.Exit(130)
+
+        # Update bundle in store
+        storage = self.store.load()
+        del storage.bundles[bundle_name]
+        self.store.save(storage)
 
     def create_bundle(
         self,
