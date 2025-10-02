@@ -18,7 +18,7 @@ install(show_locals=True)
 
 app = typer.Typer(
     name="bdapt",
-    help="Bundle APT: Manage multiple Debian APT packages as groups.",
+    help="Bundle APT: Group multiple Debian APT packages as bundles.",
     add_completion=True,
 )
 
@@ -112,7 +112,7 @@ def main(
         help="Skip all confirmation prompts",
     ),
 ) -> None:
-    """bdapt: Bundle APT - Manage groups of APT packages as dependencies."""
+    """bdapt: Group multiple Debian APT packages as bundles."""
     console_module.quiet = quiet_flag
     console_module.non_interactive = non_interactive_flag
 
