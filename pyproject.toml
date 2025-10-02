@@ -4,8 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bdapt"
-version = "0.1.0"
-description = "Bundle APT - Manage groups of APT packages as dependencies"
+description = "A cli tool for grouping and managing multiple APT packages as bundles on Debian-based systems."
 authors = [{ name = "deltazefiro", email = "deltazefiro@gmail.com" }]
 license = { text = "GPL-3.0-or-later" }
 readme = "README.md"
@@ -37,6 +36,7 @@ classifiers = [
     "Topic :: System :: Systems Administration",
     "Topic :: Utilities",
 ]
+dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://github.com/deltazefiro/bdapt"
@@ -49,6 +49,9 @@ bdapt = "bdapt.cli:app"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "black", "isort", "mypy"]
+
+[tool.hatch.version]
+path = "bdapt/__init__.py"
 
 [tool.black]
 target-version = ['py38']
