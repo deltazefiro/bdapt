@@ -18,7 +18,7 @@ install(show_locals=True)
 
 app = typer.Typer(
     name="bdapt",
-    help="Bundle APT - Manage groups of APT packages as dependencies",
+    help="Bundle APT: Manage multiple Debian APT packages as groups.",
     add_completion=True,
 )
 
@@ -229,13 +229,7 @@ def ls(
 ) -> None:
     """List all bundles."""
     manager = BundleManager()
-
-    if tree:
-        # TODO: Implement tree view
-        console.print("[yellow]Tree view not yet implemented[/yellow]")
-        return
-
-    manager.list_bundles()
+    manager.list_bundles(tree=tree)
 
 
 @app.command()

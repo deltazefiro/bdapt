@@ -5,6 +5,7 @@ from typing import List, Optional
 import typer
 from rich.panel import Panel
 from rich.prompt import Confirm
+from rich.tree import Tree
 
 from .apt_operations import AptCommandRunner
 from . import console as console_module
@@ -315,7 +316,7 @@ class BundleManager:
 
         console.print(f"[green]✓[/green] Synced bundle '{bundle_name}'")
 
-    def list_bundles(self) -> None:
+    def list_bundles(self, tree: bool = False) -> None:
         """List all bundles."""
         storage = self.store.load()
 
@@ -323,11 +324,35 @@ class BundleManager:
             console.print("[yellow]No bundles found[/yellow]")
             return
 
-        for name, bundle in storage.bundles.items():
-            pkg_count = len(bundle.packages)
-            desc = f" [dim]{bundle.description}[/dim]" if bundle.description else ""
-            console.print(
-                f"[bold]{name}[/bold] ({pkg_count} package{pkg_count != 1 and 's' or ''}){desc}")
+        if tree:
+            # Create a tree view
+            root = Tree(
+                f"📦 [bold]{len(storage.bundles)} bundle{len(storage.bundles) != 1 and 's' or ''}[/bold]")
+
+            for name, bundle in storage.bundles.items():
+                pkg_count = len(bundle.packages)
+                desc = f" [dim]{bundle.description}[/dim]" if bundle.description else ""
+
+                # Add bundle as a branch
+                bundle_node = root.add(
+                    f"[bold cyan]{name}[/bold cyan] ({pkg_count} package{pkg_count != 1 and 's' or ''}){desc}"
+                )
+
+                # Add packages as leaves
+                if bundle.packages:
+                    for pkg_name in sorted(bundle.packages.keys()):
+                        bundle_node.add(f"{pkg_name}")
+                else:
+                    bundle_node.add("[dim]No packages[/dim]")
+
+            console.print(root)
+        else:
+            # Simple list view
+            for name, bundle in storage.bundles.items():
+                pkg_count = len(bundle.packages)
+                desc = f" [dim]{bundle.description}[/dim]" if bundle.description else ""
+                console.print(
+                    f"[bold]{name}[/bold] ({pkg_count} package{pkg_count != 1 and 's' or ''}){desc}")
 
     def show_bundle(self, bundle_name: str) -> None:
         """Display detailed information about a bundle.
