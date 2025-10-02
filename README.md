@@ -1,11 +1,11 @@
-# bdapt: Bundle APT
+# bdapt: Bundle APT<br><sub><sup>Manage multiple Debian / Ubuntu APT packages as bundles</sup></sub>
 
-When building software from source or install applications outside of your system's package manager, you often need to manually install dependencies with `apt install`. Later, when you remove the application, these dependencies remain. `apt autoremove` won't touch them because they were marked as "manually installed." Over time this can lead to a cluttered system with orphaned packages.
+**bdapt** (Bundle APT) is a command-line tool for managing collections of [APT packages](https://en.wikipedia.org/wiki/APT_(software)) as "bundles" on Debian-based systems (e.g. Ubuntu, Debian, etc.). It lets you install, remove, and track related packages together with a single command.
 
-bdapt (Bundle APT, pronounced "bee-dapt") is a wrapper for APT that manages groups of package dependencies as cohesive bundles. It uses equivs to create metapackages, allowing dependencies to be installed, tracked, and removed together.
+When software is installed from source or outside your package manager, dependencies often have to be installed manually using `apt install`. Later, when you remove the software, these dependencies remain because `apt autoremove` only removes packages marked as "automatically installed." Over time, this leads to clutter and orphaned packages. **bdapt** solves this by grouping dependencies into bundles, making cleanup straightforward.
 
 > [!WARNING]  
-> This project is in an early development stage and has been extensively developed with AI. Use at your own risk.
+> This project is currently in an early development stage and **not production ready**. Breaking changes and data loss are expected. Use at your own risk.
 
 ## Installation
 
@@ -15,7 +15,7 @@ You can install bdapt using pip:
 pip install bdapt
 ```
 
-Or if you use uv:
+Or if you prefer [uv](https://github.com/astral-sh/uv):
 
 ```bash
 uv tool install bdapt
@@ -28,7 +28,7 @@ Let's say you're setting up a server for a web application. You need Nginx, Post
 #### Create bundle
 
 ```bash
-sudo bdapt new web-stack nginx postgresql redis -d "Core web services stack"
+bdapt new web-stack nginx postgresql redis -d "Core web services stack"
 ```
 
 #### Add packages
@@ -36,7 +36,7 @@ sudo bdapt new web-stack nginx postgresql redis -d "Core web services stack"
 Your application now requires PHP. Instead of installing it manually, add it to your bundle.
 
 ```bash
-sudo bdapt add web-stack php-fpm php-pgsql
+bdapt add web-stack php-fpm php-pgsql
 ```
 
 #### Remove packages
@@ -44,7 +44,7 @@ sudo bdapt add web-stack php-fpm php-pgsql
 You've decided to move Redis to a different server and no longer need it locally.
 
 ```bash
-sudo bdapt rm web-stack redis
+bdapt rm web-stack redis
 ```
 
 #### Remove bundle
@@ -52,39 +52,33 @@ sudo bdapt rm web-stack redis
 You are decommissioning the server and want to clean up everything.
 
 ```bash
-sudo bdapt del web-stack
+bdapt del web-stack
 ```
 
-Now, `apt` sees that `nginx`, `postgresql`, `php-fpm`, etc., are no longer required by any package. They are now considered orphaned dependencies.
-
-```bash
-sudo apt autoremove
-```
-Your system is now clean, with no leftover packages from your web stack.
+Now your system is clean!
 
 ## Usage
 
-```plaintext
-bdapt [command] [options]
+```plaintext                                                     
+ Usage: bdapt [OPTIONS] COMMAND [ARGS]...
 
-COMMANDS:
-  new <bundle> [pkgs...]      Create and install new bundle
-    -d, --desc TEXT           Add description
+ Bundle APT: Group multiple Debian APT packages as bundles.
 
-  add <bundle> <pkgs...>      Add packages to a bundle
-
-  rm <bundle> <pkgs...>       Remove packages from a bundle
-
-  del <bundle>                Delete the bundle
-
-  ls                          List all bundles
-    --tree                    Show as dependency tree
-
-  show <bundle>               Display bundle contents
-
-  sync <bundle>               Force reinstall bundle to match definition
-
-OPTIONS:
-  -y, --non-interactive       Skip all confirmation prompts
-  -q, --quiet                 Minimal output
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --version                       Show version and exit                                                                                    │
+│ --quiet               -q        Minimal output                                                                                           │
+│ --non-interactive     -y        Skip all confirmation prompts                                                                            │
+│ --install-completion            Install completion for the current shell.                                                                │
+│ --show-completion               Show completion for the current shell, to copy it or customize the installation.                         │
+│ --help                          Show this message and exit.                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ new    Create and install new bundle.                                                                                                    │
+│ add    Add packages to a bundle.                                                                                                         │
+│ rm     Remove packages from a bundle.                                                                                                    │
+│ del    Delete the bundle.                                                                                                                │
+│ ls     List all bundles.                                                                                                                 │
+│ show   Display bundle contents.                                                                                                          │
+│ sync   Force reinstall bundle to match definition.                                                                                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
