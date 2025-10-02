@@ -1,11 +1,16 @@
 # bdapt: Bundle APT<br><sub><sup>Manage multiple Debian / Ubuntu APT packages as bundles</sup></sub>
 
+![PyPI - Version](https://img.shields.io/pypi/v/bdapt)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/bdapt)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/bdapt)
+[![GitHub Repo stars](https://img.shields.io/github/stars/deltazefiro/bdapt)](https://github.com/deltazefiro/bdapt)
+
 **bdapt** (Bundle APT) is a command-line tool for managing collections of [APT packages](https://en.wikipedia.org/wiki/APT_(software)) as "bundles" on Debian-based systems (e.g. Ubuntu, Debian, etc.). It lets you install, remove, and track related packages together with a single command.
 
 When software is installed from source or outside your package manager, dependencies often have to be installed manually using `apt install`. Later, when you remove the software, these dependencies remain because `apt autoremove` only removes packages marked as "automatically installed." Over time, this leads to clutter and orphaned packages. **bdapt** solves this by grouping dependencies into bundles, making cleanup straightforward.
 
 > [!WARNING]  
-> This project is currently in an early development stage and **not production ready**. Breaking changes and data loss are expected. Use at your own risk.
+> This project is in an early development stage and is **not production ready**. Expect breaking changes and data loss. **Backward compatibility is not guaranteed** (i.e. may require manual data migration on updates). Use at your own risk.
 
 ## Installation
 
