@@ -223,6 +223,7 @@ def delete(
 def ls(
     tree: bool = typer.Option(
         False,
+        "-t",
         "--tree",
         help="Show as dependency tree",
     ),
